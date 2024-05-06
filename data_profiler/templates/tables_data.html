@@ -1,0 +1,1392 @@
+{% extends 'includes/_layout.html' %}
+{% block title %}Data_Profiler - Dashboard{% endblock %}
+{% load static %}
+{% load connector_extras %}
+{% block styles %}
+<link href="{% static 'vendor/jquery-steps/css/jquery.steps.css' %}" rel="stylesheet">
+<link href="{% static 'css/style.css' %}" rel="stylesheet">
+<link href="{% static 'vendor/datatables/css/jquery.dataTables.min.css' %}" rel="stylesheet">
+<style>
+    .logs_view{
+        background-color: #0e0e0e; 
+        color: #fefefe;
+        border-radius: 5px;
+        padding: 1rem 0.5rem;
+    }
+
+    .fa-spinner {
+        animation: spinning 1s infinite;
+    }
+
+    @keyframes spinning {
+        from { 
+            transform: rotate(0deg); 
+        } to { 
+            transform: rotate(360deg); 
+        }
+    }
+
+    .chat-data-form input[type="text"] {
+        width: calc(100% - 70px);
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px 0 0 5px;
+    }
+
+    .chat-data-form button {
+        width: 60px;
+        padding: 10px;
+        border: none;
+        border-radius: 0 5px 5px 0;
+        background-color: #007bff;
+        color: #fff;
+        cursor: pointer;
+    }
+
+    .chat-response {
+        margin-top: 20px;
+        border: 1px solid #ccc;
+        padding: 10px;
+        border-radius: 5px;
+        min-height: 100px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+</style>
+<script src="{% static 'vendor/chart.js/Chart.bundle.min.js' %}"></script>
+<script src="{% static 'js/plugins-init/chartjs-init.js' %}"></script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="{% static 'vendor/datatables/js/jquery.dataTables.min.js' %}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+{% endblock %}
+{% block body %}
+<div class="content-body">
+    <!-- row -->
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text">
+                    <h4>Service: {{ connection_data.database_type }} | Database: {{ connection_data.database_name }}</h4>
+                    <p class="mb-0">Visiablity : {% if connection_data.publish_status == 1 %}Personal{% endif %}{% if connection_data.publish_status == 2 %}Group - {{ connection_data.publish_to_group.name }}{% endif %}{% if connection_data.publish_status == 3 %}Organization - {{ connection_data.publish_to_group.name }}{% endif %}{% if connection_data.publish_status == 4 %}Public{% endif %}</p>
+                </div>
+            </div>
+            <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex flex-wrap gap-2">
+                {% if not any_table_running %}
+                <form action="{% url 'run_etl_for_connector' meta_id=connection_data.meta_id %}" method="post">
+                    {% csrf_token %} 
+                    <button type="submit" class="btn btn-primary">Run All Tables ETL Now<span class="btn-icon-right"><i class="fa fa-forward"></i></span>
+                    </button>
+                </form>
+                {% endif %}
+                <form action="{% url 'get_test_form' meta_id=connection_data.meta_id %}" method="post">
+                    {% csrf_token %} 
+                    <button type="submit" class="btn btn-warning">Add Test<span class="btn-icon-right"><i class="fa fa-plus"></i></span>
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">List Table</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="basic-list-group">
+                            <div class="row">
+                                <div class="col-lg-6 col-xl-2">
+                                    <div class="list-group mb-4 " id="list-tab" role="tablist">
+                                        {% for table in tables_data %}
+                                        <a class="list-group-item list-group-item-action {% if forloop.counter == 1 %}active{% endif %}" id="{{ table.name }}-list" data-toggle="list" href="#{{ table.name }}" role="tab" aria-selected="{% if forloop.counter == 1 %}true{% else %}false{% endif %}">{{ table.name }}</a>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <div class="col-lg-6 col-xl-10">
+                                    <div class="tab-content" id="nav-tabContent">
+                                        {% for table in tables_data %}
+                                        <div class="tab-pane fade {% if forloop.counter == 1 %}active show{% endif %}" id="{{ table.name }}">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h4 class="card-title">Table: {{ table.name }}</h4>
+                                                    {% if table.status != 1 and table.status != 2 %}
+                                                    <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex flex-wrap gap-2">
+                                                        <form action="{% url 'run_etl_for_table' meta_id=connection_data.meta_id %}" method="post">
+                                                            {% csrf_token %} 
+                                                            <input type="hidden" name="table_id" value="{{ table.table_id }}">
+                                                            <button type="submit" class="btn btn-secondary">Run ETL Now<span class="btn-icon-right"><i class="fa fa-play"></i></span>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        <div class="col-lg-3 col-sm-6">
+                                                            <div class="card">
+                                                                <div class="stat-widget-two card-body">
+                                                                    <div class="stat-content">
+                                                                        <div class="stat-text">Total ETL </div>
+                                                                        <div class="stat-digit">{{ table.total_case }}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-lg-3 col-sm-6">
+                                                            <div class="card">
+                                                                <div class="stat-widget-two card-body">
+                                                                    <div class="stat-content">
+                                                                        <div class="stat-text">Success ETL</div>
+                                                                        <div class="stat-digit">{{ table.etl_pass }}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-lg-3 col-sm-6">
+                                                            <div class="card">
+                                                                <div class="stat-widget-two card-body">
+                                                                    <div class="stat-content">
+                                                                        <div class="stat-text">Failed ETL</div>
+                                                                        <div class="stat-digit">{{ table.etl_fail }}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-lg-3 col-sm-6">
+                                                            <div class="card">
+                                                                <div class="stat-widget-two card-body">
+                                                                    <div class="stat-content">
+                                                                        <div class="stat-text">Aborted ETL</div>
+                                                                        <div class="stat-digit">{{ table.etl_abort }}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-lg-3 col-sm-6">
+                                                            <div class="card">
+                                                                <div class="stat-widget-two card-body">
+                                                                    <div class="stat-content">
+                                                                        <div class="stat-text">Last ETL Status</div>
+                                                                        {% if table.status == 1 %}<div class="stat-digit text-primary">Queued</div>{% endif %}
+                                                                        {% if table.status == 2 %}<div class="stat-digit text-warning">Running</div>{% endif %}
+                                                                        {% if table.status == 3 %}<div class="stat-digit text-success">Success</div>{% endif %}
+                                                                        {% if table.status == 4 %}<div class="stat-digit text-danger">Failed</div>{% endif %}
+                                                                        {% if not table.status %}<div class="stat-digit text-danger">-</div>{% endif %}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="custom-tab-1">
+                                                        <ul class="nav nav-tabs" role="tablist">
+                                                            <li class="nav-item">
+                                                                <a class="nav-link active" data-toggle="tab" href="#columns_info_{{ table.name }}">Column Details</a>
+                                                            </li>
+                                                            <li class="nav-item">
+                                                                <a class="nav-link getCurrentData" data-tableinfo="{{ table.table_id }}" data-tabletoshow="table_to_fill_{{ table.name }}" data-toggle="tab" href="#current_data_{{ table.name }}">Row data</a>
+                                                            </li>
+                                                            <li class="nav-item">
+                                                                <a class="nav-link" data-toggle="tab" href="#metric_info_{{ table.name }}">Metric</a>
+                                                            </li>
+                                                            <li class="nav-item">
+                                                                <a href="#last_logs_{{ table.name }}" class="nav-link triggerFetch" data-etldagid="{{ table.dag_id }}" data-toggle="tab" data-targetdiv="extract_to_div_{{ table.name }}" data-etldagrunid="{{ table.dag_run_id }}" data-etltask="extract">Last logs</a>
+                                                            </li>
+                                                            <li class="nav-item">
+                                                                <a href="#chat_with_data_{{ table.name }}" class="nav-link" data-toggle="tab">Chat with data</a>
+                                                            </li>
+                                                        </ul>
+                                                        <div class="tab-content">
+                                                            <div class="tab-pane fade show active" id="columns_info_{{ table.name }}" role="tabpanel">
+                                                                <div class="pt-4">
+                                                                    <div class="table-responsive">
+                                                                        <table class="table header-border table-hover verticle-middle">
+                                                                            <thead>
+                                                                                <tr>
+                                                                                    <th scope="col">Column name</th>
+                                                                                    <th scope="col">Datatype</th>
+                                                                                    <th scope="col">Nulls</th>
+                                                                                    <th scope="col">Unique</th>
+                                                                                    <th scope="col">Duplicate</th>
+                                                                                    <th>All Data</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {% for column in table.columns_data %}
+                                                                                <tr>
+                                                                                    <td>{{ column.name }}</td>
+                                                                                    <td>{{ column.datatype }}</td>
+                                                                                    <td>
+                                                                                        <div class="progress" style="background: rgba(127, 99, 244, .1)">
+                                                                                            <div class="progress-bar" id="{{ table.name }}_{{ column.name}}_nulls" role="progressbar"><span class="sr-only">{{ column.last_data.nulls_count | calculate_percentage:table.row_count }}% Nulls</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <script>
+                                                                                            document.querySelector('#{{ table.name }}_{{ column.name}}_nulls').style.width = '{{ column.last_data.nulls_count | calculate_percentage:table.row_count }}' + '%'
+                                                                                        </script>
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        <div class="progress" style="background: rgba(127, 99, 244, .1)">
+                                                                                            <div class="progress-bar" id="{{ table.name }}_{{ column.name}}_unique" role="progressbar"><span class="sr-only">{{ column.last_data.unique_values | calculate_percentage:table.row_count }}% Unique</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <script>
+                                                                                            document.querySelector('#{{ table.name }}_{{ column.name}}_unique').style.width = '{{ column.last_data.unique_values | calculate_percentage:table.row_count }}' + '%'
+                                                                                        </script>
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        <div class="progress" style="background: rgba(127, 99, 244, .1)">
+                                                                                            <div class="progress-bar" id="{{ table.name }}_{{ column.name}}_duplicates" role="progressbar"><span class="sr-only">{{ column.last_data.duplicates | calculate_percentage:table.row_count }}% Duplicate</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <script>
+                                                                                            document.querySelector('#{{ table.name }}_{{ column.name}}_duplicates').style.width = '{{ column.last_data.duplicates | calculate_percentage:table.row_count }}' + '%'
+                                                                                        </script>
+                                                                                    </td>
+                                                                                    <td><a href="" class="btn btn-info" onclick="showDetails('view_more_{{ table.name }}_{{ column.name}}')">View more</a></td>
+                                                                                </tr>
+                                                                                <tr id="view_more_{{ table.name }}_{{ column.name}}" class="d-none">
+                                                                                    <td colspan="6" style="color: #BDBDC7; background-color: rgba(0, 0, 0, 0.075);">
+                                                                                        <div class="row">
+                                                                                            <div class="col-md-3">
+                                                                                                <div class="card" style="height:85%;">
+                                                                                                    <div class="stat-widget-two card-body" style="display: flex;align-items: center; justify-content: center;">
+                                                                                                        <div class="stat-content">
+                                                                                                            <div class="stat-text">Total Row</div>
+                                                                                                            <div class="stat-digit">{{ table.row_count }}</div>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div class="col-md-3">
+                                                                                                <div class="card">
+                                                                                                    <div class="card-body"> 
+                                                                                                        <div class="text-center">
+                                                                                                            <span class="data-attr" data-peity='{ "fill": ["rgba(26, 51, 213, 1)", "rgba(26, 51, 213, 0.1)"],    "innerRadius": 30, "radius": 40 }'>{{ column.last_data.nulls_count }}/{{ table.row_count }}</span>
+                                                                                                        </div>                                           
+                                                                                                        <div class="text-center">
+                                                                                                            <p class="my-2">Null count: {{ column.last_data.nulls_count }}</p>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div class="col-md-3">
+                                                                                                <div class="card">
+                                                                                                    <div class="card-body">
+                                                                                                        <div class="text-center">
+                                                                                                            <span class="data-attr" data-peity='{ "fill": ["rgba(26, 51, 213, 1)", "rgba(26, 51, 213, 0.1)"],    "innerRadius": 30, "radius": 40 }'>{{ column.last_data.unique_values }}/{{ table.row_count }}</span>
+                                                                                                        </div>
+                                                                                                        <div class="text-center">
+                                                                                                            <p class="my-2">Unique count: {{ column.last_data.unique_values }}</p>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div class="col-md-3">
+                                                                                                <div class="card">
+                                                                                                    <div class="card-body">
+                                                                                                        <div class="text-center">
+                                                                                                            <span class="data-attr" data-peity='{ "fill": ["rgba(26, 51, 213, 1)", "rgba(26, 51, 213, 0.1)"],    "innerRadius": 30, "radius": 40 }'>{{ column.last_data.duplicates }}/{{ table.row_count }}</span>
+                                                                                                        </div>
+                                                                                                        <div class="text-center">
+                                                                                                            <p class="my-2">Duplicate count: {{ column.last_data.duplicates }}</p>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div class="col-md-12">
+                                                                                                {% if column.last_data.mean %}
+                                                                                                <div class="card">
+                                                                                                    <div class="card-body"><div class="chartjs-size-monitor"><div class="chartjs-size-monitor-expand"><div class=""></div></div><div class="chartjs-size-monitor-shrink"><div class=""></div></div></div>
+                                                                                                        <canvas id="mean_median_std_bar_{{ table.name }}_{{ column.name}}" width="439" height="219" style="display: block; width: 439px; height: 219px;" class="chartjs-render-monitor"></canvas>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                <script>
+                                                                                                    var barChart_2 = document.getElementById("mean_median_std_bar_{{ table.name }}_{{ column.name}}").getContext('2d');
+                                                                                                    var barChart_2gradientStroke = barChart_2.createLinearGradient(0, 0, 0, 250);
+                                                                                                    barChart_2gradientStroke.addColorStop(0, "rgba(26, 51, 213, 1)");
+                                                                                                    barChart_2gradientStroke.addColorStop(1, "rgba(26, 51, 213, 0.5)");
+
+                                                                                                    barChart_2.height = 100;
+
+                                                                                                    new Chart(barChart_2, {
+                                                                                                        type: 'bar',
+                                                                                                        data: {
+                                                                                                            defaultFontFamily: 'Poppins',
+                                                                                                            labels: ["Mean", "Median", "STD", "Skewness", "Kurtosis"],
+                                                                                                            datasets: [
+                                                                                                                {
+                                                                                                                    label: "Value",
+                                                                                                                    data: ['{{ column.last_data.mean }}', '{{ column.last_data.median }}', '{{ column.last_data.std }}', '{{ column.last_data.skewness }}', '{{ column.last_data.kurtosis }}'],
+                                                                                                                    borderColor: barChart_2gradientStroke,
+                                                                                                                    borderWidth: "0",
+                                                                                                                    backgroundColor: barChart_2gradientStroke, 
+                                                                                                                    hoverBackgroundColor: barChart_2gradientStroke
+                                                                                                                }
+                                                                                                            ]
+                                                                                                        },
+                                                                                                        options: {
+                                                                                                            legend: false, 
+                                                                                                            scales: {
+                                                                                                                yAxes: [{
+                                                                                                                    ticks: {
+                                                                                                                        beginAtZero: true
+                                                                                                                    }
+                                                                                                                }],
+                                                                                                                xAxes: [{
+                                                                                                                    barPercentage: 0.5
+                                                                                                                }]
+                                                                                                            }
+                                                                                                        }
+                                                                                                    });
+                                                                                                </script>
+                                                                                            </div>
+                                                                                            {% endif %}
+                                                                                            {% if column.last_data.percentiles %}
+                                                                                            <div class="col-md-12">
+                                                                                                <div class="card">
+                                                                                                    <div class="card-body">
+                                                                                                        <div id="percentile_boxplot_{{ table.name }}_{{ column.name }}" class="chart-container"></div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                <script>
+                                                                                                    var percentileData = {
+                                                                                                    "25%": "{{ column.last_data.percentiles | get_boxplot_data:25 }}",
+                                                                                                    "50%": "{{ column.last_data.percentiles | get_boxplot_data:50 }}",
+                                                                                                    "75%": "{{ column.last_data.percentiles | get_boxplot_data:75 }}",
+                                                                                                    "max": "{{ column.last_data.percentiles | get_boxplot_data:100 }}",
+                                                                                                    "min": "{{ column.last_data.percentiles | get_boxplot_data:0 }}",
+                                                                                                };
+                                                                                                var boxPlotData = [{
+                                                                                                    y: [percentileData['min'], percentileData["25%"], percentileData["50%"],
+                                                                                                    percentileData["75%"], percentileData["max"]],
+                                                                                                    type: 'box',
+                                                                                                    boxmean: false,
+                                                                                                    marker: {
+                                                                                                        color: 'rgba(26, 51, 213, 1)',
+                                                                                                        outliercolor: 'rgba(219, 64, 82, 1)',
+                                                                                                        
+                                                                                                    }
+                                                                                                }];
+                                                                                                Plotly.newPlot('percentile_boxplot_{{ table.name }}_{{ column.name}}', boxPlotData, {
+                                                                                                    title: 'Outliers',
+                                                                                                    yaxis: {
+                                                                                                        title: 'Values',
+                                                                                                        titlefont: {
+                                                                                                            size: 14
+                                                                                                        }
+                                                                                                    },
+                                                                                                    margin: {
+                                                                                                        l: 40,
+                                                                                                        r: 20,
+                                                                                                        t: 50,
+                                                                                                        b: 50
+                                                                                                    },
+                                                                                                    width: '100%', 
+                                                                                                    height: '100%',
+                                                                                                    autosize: true, 
+                                                                                                    responsive: true 
+                                                                                                });
+                                                                                                </script>
+                                                                                            </div>
+                                                                                            {% endif %}
+                                                                                            {% if column.last_data.correlation %}
+                                                                                            <div class="col-md-12">
+                                                                                                <div class="card">
+                                                                                                    <div class="card-body">
+                                                                                                        <div id="correlation_plot_{{ table.name }}_{{ column.name }}" class="chart-container"></div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                <script>
+                                                                                                    var correlationData = {{ column.last_data.correlation | safe }};
+                                                                                                    var correlationPlotData = [{
+                                                                                                        x: Object.keys(correlationData),
+                                                                                                        y: Object.values(correlationData),
+                                                                                                        mode: 'markers',
+                                                                                                        type: 'scatter',
+                                                                                                        marker: {
+                                                                                                            size: 10,
+                                                                                                            color: 'rgba(26, 51, 213, 1)'
+                                                                                                        }
+                                                                                                    }];
+                                                                                                    Plotly.newPlot('correlation_plot_{{ table.name }}_{{ column.name }}', correlationPlotData, {
+                                                                                                        title: 'Correlation Plot',
+                                                                                                        xaxis: {
+                                                                                                            title: 'Column Name',
+                                                                                                            titlefont: {
+                                                                                                                size: 14
+                                                                                                            }
+                                                                                                        },
+                                                                                                        yaxis: {
+                                                                                                            title: 'Correlation Value',
+                                                                                                            titlefont: {
+                                                                                                                size: 14
+                                                                                                            }
+                                                                                                        },
+                                                                                                        margin: {
+                                                                                                            l: 40,
+                                                                                                            r: 20,
+                                                                                                            t: 50,
+                                                                                                            b: 50
+                                                                                                        },
+                                                                                                        width: '100%', 
+                                                                                                        height: '100%',
+                                                                                                        autosize: true, 
+                                                                                                        responsive: true 
+                                                                                                    });
+                                                                                                </script>
+                                                                                            </div>                                                                                            
+                                                                                            {% endif %}
+                                                                                        </div>
+                                                                                        
+                                                                                    </td>
+                                                                                </tr>
+                                                                                {% endfor %}
+                                                                                <tr>
+                                                                                    <td colspan="6" class="text-center"><button class="btn btn-primary" onclick="showDetails('table_info_{{ table.name }}')">View more related column</button></td>
+                                                                                </tr>
+                                                                                <tr class="d-none" id="table_info_{{ table.name }}">
+                                                                                    <td colspan="6">
+                                                                                        <div class="card">
+                                                                                            <div class="card-body"><div class="chartjs-size-monitor"><div class="chartjs-size-monitor-expand"><div class=""></div></div><div class="chartjs-size-monitor-shrink"><div class=""></div></div></div>
+                                                                                                <canvas id="std_plot_over_{{ table.name }}" width="439" height="219" style="display: block; width: 439px; height: 219px;" class="chartjs-render-monitor"></canvas>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <script>
+                                                                                            var areaChart_1 = document.getElementById("std_plot_over_{{ table.name }}").getContext('2d');
+                                                                                            var stdData = [
+                                                                                                                {% for column in table.columns_data %}
+                                                                                                                {{ column.last_data.std }},
+                                                                                                                {% endfor %}
+                                                                                                            ]
+                                                                                            var stdDataLabel = [
+                                                                                                        {% for column in table.columns_data %}
+                                                                                                        '{{ column.name }}',
+                                                                                                        {% endfor %}
+                                                                                                    ]
+
+                                                                                            areaChart_1.height = 100;
+
+                                                                                            new Chart(areaChart_1, {
+                                                                                                type: 'line',
+                                                                                                data: {
+                                                                                                    defaultFontFamily: 'Poppins',
+                                                                                                    labels: stdDataLabel,
+                                                                                                    datasets: [
+                                                                                                        {
+                                                                                                            label: "Standard deviation",
+                                                                                                            data: stdData,
+                                                                                                            borderColor: 'rgba(0, 0, 1128, .3)',
+                                                                                                            borderWidth: "1",
+                                                                                                            backgroundColor: 'rgba(0, 171, 197, .5)', 
+                                                                                                            pointBackgroundColor: 'rgba(0, 0, 1128, .3)'
+                                                                                                        }
+                                                                                                    ]
+                                                                                                },
+                                                                                                options: {
+                                                                                                    legend: false, 
+                                                                                                    scales: {
+                                                                                                        yAxes: [{
+                                                                                                            ticks: {
+                                                                                                                beginAtZero: true, 
+                                                                                                                max: 100, 
+                                                                                                                min: 0, 
+                                                                                                                stepSize: 20, 
+                                                                                                                padding: 10
+                                                                                                            }
+                                                                                                        }],
+                                                                                                        xAxes: [{ 
+                                                                                                            scaleLabel: {
+                                                                                                                display: true,
+                                                                                                                labelString: 'Standard deviation over columns',
+                                                                                                                fontStyle: 'bold'
+                                                                                                            },
+                                                                                                            ticks: {
+                                                                                                                padding: 5
+                                                                                                            }
+                                                                                                        }]
+                                                                                                    }
+                                                                                                }
+                                                                                            });
+                                                                                        </script>
+                                                                                        <div class="card">
+                                                                                            <div class="card-body"><div class="chartjs-size-monitor"><div class="chartjs-size-monitor-expand"><div class=""></div></div><div class="chartjs-size-monitor-shrink"><div class=""></div></div></div>
+                                                                                                <canvas id="skewness_plot_over_{{ table.name }}" width="439" height="219" style="display: block; width: 439px; height: 219px;" class="chartjs-render-monitor"></canvas>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <script>
+                                                                                            var areaChart_1 = document.getElementById("skewness_plot_over_{{ table.name }}").getContext('2d');
+                                                                                            var skewnessData = [
+                                                                                                                {% for column in table.columns_data %}
+                                                                                                                {{ column.last_data.skewness }},
+                                                                                                                {% endfor %}
+                                                                                                            ]
+                                                                                            var skewnessDataLabel = [
+                                                                                                        {% for column in table.columns_data %}
+                                                                                                        '{{ column.name }}',
+                                                                                                        {% endfor %}
+                                                                                                    ]
+
+                                                                                            areaChart_1.height = 100;
+
+                                                                                            new Chart(areaChart_1, {
+                                                                                                type: 'line',
+                                                                                                data: {
+                                                                                                    defaultFontFamily: 'Poppins',
+                                                                                                    labels: skewnessDataLabel,
+                                                                                                    datasets: [
+                                                                                                        {
+                                                                                                            label: "Skewness Value",
+                                                                                                            data: skewnessData,
+                                                                                                            borderColor: 'rgba(0, 0, 1128, .3)',
+                                                                                                            borderWidth: "1",
+                                                                                                            backgroundColor: 'rgba(0, 171, 197, .5)', 
+                                                                                                            pointBackgroundColor: 'rgba(0, 0, 1128, .3)'
+                                                                                                        }
+                                                                                                    ]
+                                                                                                },
+                                                                                                options: {
+                                                                                                    legend: false, 
+                                                                                                    scales: {
+                                                                                                        xAxes: [{
+                                                                                                            scaleLabel: {
+                                                                                                                display: true,
+                                                                                                                labelString: 'Skewness over columns',
+                                                                                                                fontStyle: 'bold'
+                                                                                                            }, 
+                                                                                                            ticks: {
+                                                                                                                padding: 5
+                                                                                                            }
+                                                                                                        }]
+                                                                                                    }
+                                                                                                }
+                                                                                            });
+                                                                                        </script>
+                                                                                        <div class="card">
+                                                                                            <div class="card-body"><div class="chartjs-size-monitor"><div class="chartjs-size-monitor-expand"><div class=""></div></div><div class="chartjs-size-monitor-shrink"><div class=""></div></div></div>
+                                                                                                <canvas id="kurtosis_plot_over_{{ table.name }}" width="439" height="219" style="display: block; width: 439px; height: 219px;" class="chartjs-render-monitor"></canvas>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <script>
+                                                                                            var areaChart_1 = document.getElementById("kurtosis_plot_over_{{ table.name }}").getContext('2d');
+                                                                                            var kurtosisData = [
+                                                                                                                {% for column in table.columns_data %}
+                                                                                                                {{ column.last_data.kurtosis }},
+                                                                                                                {% endfor %}
+                                                                                                            ]
+                                                                                            var kurtosisDataLabel = [
+                                                                                                        {% for column in table.columns_data %}
+                                                                                                        '{{ column.name }}',
+                                                                                                        {% endfor %}
+                                                                                                    ]
+
+                                                                                            areaChart_1.height = 100;
+
+                                                                                            new Chart(areaChart_1, {
+                                                                                                type: 'line',
+                                                                                                data: {
+                                                                                                    defaultFontFamily: 'Poppins',
+                                                                                                    labels: kurtosisDataLabel,
+                                                                                                    datasets: [
+                                                                                                        {
+                                                                                                            label: "Kurtosis",
+                                                                                                            data: kurtosisData,
+                                                                                                            borderColor: 'rgba(0, 0, 1128, .3)',
+                                                                                                            borderWidth: "1",
+                                                                                                            backgroundColor: 'rgba(0, 171, 197, .5)', 
+                                                                                                            pointBackgroundColor: 'rgba(0, 0, 1128, .3)'
+                                                                                                        }
+                                                                                                    ]
+                                                                                                },
+                                                                                                options: {
+                                                                                                    legend: false, 
+                                                                                                    scales: {
+                                                                                                        yAxes: [{
+                                                                                                            ticks: {
+                                                                                                                beginAtZero: true, 
+                                                                                                                max: 100, 
+                                                                                                                min: 0, 
+                                                                                                                stepSize: 20, 
+                                                                                                                padding: 10
+                                                                                                            }
+                                                                                                        }],
+                                                                                                        xAxes: [{
+                                                                                                            scaleLabel: {
+                                                                                                                display: true,
+                                                                                                                labelString: 'Kurtosis over columns',
+                                                                                                                fontStyle: 'bold'
+                                                                                                            }, 
+                                                                                                            ticks: {
+                                                                                                                padding: 5
+                                                                                                            }
+                                                                                                        }]
+                                                                                                    }
+                                                                                                }
+                                                                                            });
+                                                                                        </script>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="tab-pane fade" id="current_data_{{ table.name }}">
+                                                                <div class="pt-4">
+                                                                    <div class="col-12">
+                                                                        <div class="card">
+                                                                            <div class="card-header">
+                                                                                <h4 class="card-title">Current Data</h4>
+                                                                            </div>
+                                                                            <div class="card-body">
+                                                                                <div class="table-responsive">
+                                                                                    <table id="table_to_fill_{{ table.name }}" class="display">
+                                                                                        <thead>
+                                                                                        </thead>
+                                                                                        <tbody>
+                                                                                        </tbody>
+                                                                                    </table>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="tab-pane fade" id="metric_info_{{ table.name }}">
+                                                                <div class="pt-4">
+                                                                    <h4>Metric Details</h4>
+                                                                    <div class="row">
+                                                                        <div class="col-12">
+                                                                            <div class="card">
+                                                                                <div class="card-body"><div class="chartjs-size-monitor"><div class="chartjs-size-monitor-expand"><div class=""></div></div><div class="chartjs-size-monitor-shrink"><div class=""></div></div></div>
+                                                                                    <canvas id="row_graph_for_metric_{{ table.name }}" width="439" height="219" style="display: block; width: 439px; height: 219px;" class="chartjs-render-monitor"></canvas>
+                                                                                </div>
+                                                                            </div>
+                                                                            <script>
+                                                                                var data = [
+                                                                                    {% for metric in table.metric_data %}
+                                                                                    { timestamp: "{{ metric.timestamp }}", count: '{{ metric.row_count }}' },
+                                                                                    {% endfor %}
+                                                                                    
+                                                                                ];
+
+                                                                                var timestamps = data.map(function(entry) {
+                                                                                    return moment(entry.timestamp, "MMMM DD, YYYY, h:mm a").toDate();
+                                                                                });
+                                                                                var counts = data.map(function(entry) {
+                                                                                    return entry.count;
+                                                                                });
+
+                                                                                var ctx = document.getElementById('row_graph_for_metric_{{ table.name }}').getContext('2d');
+                                                                                new Chart(ctx, {
+                                                                                    type: 'line',
+                                                                                    data: {
+                                                                                        defaultFontFamily: 'Poppins',
+                                                                                        labels: timestamps,
+                                                                                        datasets: [
+                                                                                            {
+                                                                                                label: "Row count",
+                                                                                                data: counts,
+                                                                                                borderColor: 'rgba(0, 0, 1128, .3)',
+                                                                                                borderWidth: "1",
+                                                                                                backgroundColor: 'rgba(0, 171, 197, .5)', 
+                                                                                                pointBackgroundColor: 'rgba(0, 0, 1128, .3)'
+                                                                                            }
+                                                                                        ]
+                                                                                    },
+                                                                                    options: {
+                                                                                        legend: false, 
+                                                                                        scales: {
+                                                                                            xAxes: [{
+                                                                                                type: 'time',
+                                                                                                time: {
+                                                                                                    unit: 'minute', 
+                                                                                                    displayFormats: {
+                                                                                                        minute: 'MMM DD, hA' 
+                                                                                                    }
+                                                                                                },
+                                                                                                ticks: {
+                                                                                                    maxRotation: 0, 
+                                                                                                    autoSkip: true, 
+                                                                                                    padding: 20
+                                                                                                },
+                                                                                                scaleLabel: {
+                                                                                                    display: true,
+                                                                                                    labelString: 'Timestamp'
+                                                                                                }
+                                                                                            }],
+                                                                                            yAxes: [{
+                                                                                                ticks: {
+                                                                                                    beginAtZero: true
+                                                                                                },
+                                                                                                scaleLabel: {
+                                                                                                    display: true,
+                                                                                                    labelString: 'Row Count'
+                                                                                                }
+                                                                                            }]
+                                                                                        }
+                                                                                    }
+                                                                                });
+
+                                                                            </script>
+                                                                        </div>
+                                                                        <div class="col-12">
+                                                                            <div class="default-tab">
+                                                                                <ul class="nav nav-tabs" role="tablist">
+                                                                                    {% for column in table.columns_data %}
+                                                                                        <li class="nav-item">
+                                                                                            <a class="nav-link {% if forloop.counter == 1 %}active{% endif %}" data-toggle="tab" href="#columns_metric_info_{{ table.name }}_{{ column.name }}">{{ column.name }}</a>
+                                                                                        </li>
+                                                                                    {% endfor %}
+                                                                                </ul>
+                                                                                <div class="tab-content">
+                                                                                    {% for column in table.columns_data %}
+                                                                                    <div class="tab-pane fade {% if forloop.counter == 1 %}show active{% endif %}" id="columns_metric_info_{{ table.name }}_{{ column.name }}" role="tabpanel">
+                                                                                        <div class="card">
+                                                                                            <div class="card-body"><div class="chartjs-size-monitor"><div class="chartjs-size-monitor-expand"><div class=""></div></div><div class="chartjs-size-monitor-shrink"><div class=""></div></div></div>
+                                                                                                <canvas id="null_dup_uni_for_metric_{{ table.name }}_{{ column.name }}" width="439" height="219" style="display: block; width: 439px; height: 219px;" class="chartjs-render-monitor"></canvas>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <script>
+                                                                                            var data = [
+                                                                                                {% for metric in table.metric_data %}
+                                                                                                    { 
+                                                                                                        timestamp: "{{ metric.timestamp }}", 
+                                                                                                        {% for column_name, column_metric in metric.metric_value.items %}
+                                                                                                        {% if column.name == column_name %}
+                                                                                                        nullCount: '{{ column_metric.nulls_count }}', uniqueCount: '{{ column_metric.unique_values }}', duplicateCount: '{{ column_metric.duplicates }}'
+                                                                                                        {% endif %}
+                                                                                                        {% endfor %}
+                                                                                                    },
+                                                                                                {% endfor %}
+                                                                                            ];
+                                                                                        
+                                                                                            var timestamps = data.map(function(entry) {
+                                                                                                return moment(entry.timestamp, "MMMM DD, YYYY, h:mm a").toDate();
+                                                                                            });
+                                                                                        
+                                                                                            var nullCounts = data.map(function(entry) {
+                                                                                                return entry.nullCount;
+                                                                                            });
+                                                                                        
+                                                                                            var uniqueCounts = data.map(function(entry) {
+                                                                                                return entry.uniqueCount;
+                                                                                            });
+                                                                                        
+                                                                                            var duplicateCounts = data.map(function(entry) {
+                                                                                                return entry.duplicateCount;
+                                                                                            });
+                                                                                        
+                                                                                            var ctx = document.getElementById('null_dup_uni_for_metric_{{ table.name }}_{{ column.name }}').getContext('2d');
+                                                                                            new Chart(ctx, {
+                                                                                                type: 'line',
+                                                                                                data: {
+                                                                                                    labels: timestamps,
+                                                                                                    datasets: [
+                                                                                                        {
+                                                                                                            label: "Null Count",
+                                                                                                            data: nullCounts,
+                                                                                                            borderColor: 'rgba(255, 0, 0, 1)',
+                                                                                                            borderWidth: "1",
+                                                                                                            backgroundColor: 'rgba(255, 0, 0, 0.5)', 
+                                                                                                            pointBackgroundColor: 'rgba(255, 0, 0, 1)',
+                                                                                                            fill: false
+                                                                                                        },
+                                                                                                        {
+                                                                                                            label: "Unique Count",
+                                                                                                            data: uniqueCounts,
+                                                                                                            borderColor: 'rgba(0, 255, 0, 1)',
+                                                                                                            borderWidth: "1",
+                                                                                                            backgroundColor: 'rgba(0, 255, 0, 0.5)', 
+                                                                                                            pointBackgroundColor: 'rgba(0, 255, 0, 1)',
+                                                                                                            fill: false
+                                                                                                        },
+                                                                                                        {
+                                                                                                            label: "Duplicate Count",
+                                                                                                            data: duplicateCounts,
+                                                                                                            borderColor: 'rgba(0, 0, 255, 1)',
+                                                                                                            borderWidth: "1",
+                                                                                                            backgroundColor: 'rgba(0, 0, 255, 0.5)', 
+                                                                                                            pointBackgroundColor: 'rgba(0, 0, 255, 1)',
+                                                                                                            fill: false
+                                                                                                        }
+                                                                                                    ]
+                                                                                                },
+                                                                                                options: {
+                                                                                                    scales: {
+                                                                                                        xAxes: [{
+                                                                                                            type: 'time',
+                                                                                                            time: {
+                                                                                                                unit: 'minute', 
+                                                                                                                displayFormats: {
+                                                                                                                    minute: 'MMM DD, hA' 
+                                                                                                                }
+                                                                                                            },
+                                                                                                            ticks: {
+                                                                                                                maxRotation: 0, 
+                                                                                                                autoSkip: true, 
+                                                                                                                padding: 20
+                                                                                                            },
+                                                                                                            scaleLabel: {
+                                                                                                                display: true,
+                                                                                                                labelString: 'Timestamp'
+                                                                                                            }
+                                                                                                        }],
+                                                                                                        yAxes: [{
+                                                                                                            ticks: {
+                                                                                                                beginAtZero: true
+                                                                                                            },
+                                                                                                            scaleLabel: {
+                                                                                                                display: true,
+                                                                                                                labelString: 'Count'
+                                                                                                            }
+                                                                                                        }]
+                                                                                                    }
+                                                                                                }
+                                                                                            });
+                                                                                        </script>
+                                                                                        <div class="card">
+                                                                                            <div class="card-body"><div class="chartjs-size-monitor"><div class="chartjs-size-monitor-expand"><div class=""></div></div><div class="chartjs-size-monitor-shrink"><div class=""></div></div></div>
+                                                                                                <canvas id="mean_median_for_metric_{{ table.name }}_{{ column.name }}" width="439" height="219" style="display: block; width: 439px; height: 219px;" class="chartjs-render-monitor"></canvas>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <script>
+                                                                                            var data = [
+                                                                                                {% for metric in table.metric_data %}
+                                                                                                    { 
+                                                                                                        timestamp: "{{ metric.timestamp }}", 
+                                                                                                        {% for column_name, column_metric in metric.metric_value.items %}
+                                                                                                        {% if column.name == column_name %}
+                                                                                                        meanValue: '{{ column_metric.mean }}', medianValue: '{{ column_metric.median }}'
+                                                                                                        {% endif %}
+                                                                                                        {% endfor %}
+                                                                                                    },
+                                                                                                {% endfor %}
+                                                                                            ];
+                                                                                            var timestamps = data.map(function(entry) {
+                                                                                                return moment(entry.timestamp, "MMMM DD, YYYY, h:mm a").toDate();
+                                                                                            });
+                                                                                        
+                                                                                            var meanValues = data.map(function(entry) {
+                                                                                                return entry.meanValue;
+                                                                                            });
+                                                                                        
+                                                                                            var medianValues = data.map(function(entry) {
+                                                                                                return entry.medianValue;
+                                                                                            });
+                                                                                        
+                                                                                            var ctx = document.getElementById('mean_median_for_metric_{{ table.name }}_{{ column.name }}').getContext('2d');
+                                                                                            new Chart(ctx, {
+                                                                                                type: 'line',
+                                                                                                data: {
+                                                                                                    labels: timestamps,
+                                                                                                    datasets: [
+                                                                                                        {
+                                                                                                            label: "Mean  Value",
+                                                                                                            data: meanValues,
+                                                                                                            borderColor: 'rgba(255, 0, 0, 1)',
+                                                                                                            borderWidth: "1",
+                                                                                                            backgroundColor: 'rgba(255, 0, 0, 0.5)', 
+                                                                                                            pointBackgroundColor: 'rgba(255, 0, 0, 1)',
+                                                                                                            fill: false
+                                                                                                        },
+                                                                                                        {
+                                                                                                            label: "Median Value",
+                                                                                                            data: medianValues,
+                                                                                                            borderColor: 'rgba(0, 255, 0, 1)',
+                                                                                                            borderWidth: "1",
+                                                                                                            backgroundColor: 'rgba(0, 255, 0, 0.5)', 
+                                                                                                            pointBackgroundColor: 'rgba(0, 255, 0, 1)',
+                                                                                                            fill: false
+                                                                                                        }
+                                                                                                    ]
+                                                                                                },
+                                                                                                options: {
+                                                                                                    scales: {
+                                                                                                        xAxes: [{
+                                                                                                            type: 'time',
+                                                                                                            time: {
+                                                                                                                unit: 'minute', 
+                                                                                                                displayFormats: {
+                                                                                                                    minute: 'MMM DD, hA' 
+                                                                                                                }
+                                                                                                            },
+                                                                                                            ticks: {
+                                                                                                                maxRotation: 0, 
+                                                                                                                autoSkip: true, 
+                                                                                                                padding: 20
+                                                                                                            },
+                                                                                                            scaleLabel: {
+                                                                                                                display: true,
+                                                                                                                labelString: 'Timestamp'
+                                                                                                            }
+                                                                                                        }],
+                                                                                                        yAxes: [{
+                                                                                                            scaleLabel: {
+                                                                                                                display: true,
+                                                                                                                labelString: 'Values'
+                                                                                                            }
+                                                                                                        }]
+                                                                                                    }
+                                                                                                }
+                                                                                            });
+                                                                                        </script>
+                                                                                        <div class="card">
+                                                                                            <div class="card-body"><div class="chartjs-size-monitor"><div class="chartjs-size-monitor-expand"><div class=""></div></div><div class="chartjs-size-monitor-shrink"><div class=""></div></div></div>
+                                                                                                <canvas id="std_skw_kur_for_metric_{{ table.name }}_{{ column.name }}" width="439" height="219" style="display: block; width: 439px; height: 219px;" class="chartjs-render-monitor"></canvas>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <script>
+                                                                                            var data = [
+                                                                                                {% for metric in table.metric_data %}
+                                                                                                    { 
+                                                                                                        timestamp: "{{ metric.timestamp }}", 
+                                                                                                        {% for column_name, column_metric in metric.metric_value.items %}
+                                                                                                        {% if column.name == column_name %}
+                                                                                                        stdValue: '{{ column_metric.std }}', skewnessValue: '{{ column_metric.skewness }}', kurtosisValue: '{{ column_metric.kurtosis }}'
+                                                                                                        {% endif %}
+                                                                                                        {% endfor %}
+                                                                                                    },
+                                                                                                {% endfor %}
+                                                                                            ];
+                                                                                            var timestamps = data.map(function(entry) {
+                                                                                                return moment(entry.timestamp, "MMMM DD, YYYY, h:mm a").toDate();
+                                                                                            });
+                                                                                        
+                                                                                            var stdValues = data.map(function(entry) {
+                                                                                                return entry.stdValue;
+                                                                                            });
+                                                                                        
+                                                                                            var skewnessValues = data.map(function(entry) {
+                                                                                                return entry.skewnessValue;
+                                                                                            });
+                                                                                        
+                                                                                            var kurtosisValues = data.map(function(entry) {
+                                                                                                return entry.kurtosisValue;
+                                                                                            });
+                                                                                        
+                                                                                            var ctx = document.getElementById('std_skw_kur_for_metric_{{ table.name }}_{{ column.name }}').getContext('2d');
+                                                                                            new Chart(ctx, {
+                                                                                                type: 'line',
+                                                                                                data: {
+                                                                                                    labels: timestamps,
+                                                                                                    datasets: [
+                                                                                                        {
+                                                                                                            label: "Standard Deviation Value",
+                                                                                                            data: stdValues,
+                                                                                                            borderColor: 'rgba(255, 0, 0, 1)',
+                                                                                                            borderWidth: "1",
+                                                                                                            backgroundColor: 'rgba(255, 0, 0, 0.5)', 
+                                                                                                            pointBackgroundColor: 'rgba(255, 0, 0, 1)',
+                                                                                                            fill: false
+                                                                                                        },
+                                                                                                        {
+                                                                                                            label: "Skewness Value",
+                                                                                                            data: skewnessValues,
+                                                                                                            borderColor: 'rgba(0, 255, 0, 1)',
+                                                                                                            borderWidth: "1",
+                                                                                                            backgroundColor: 'rgba(0, 255, 0, 0.5)', 
+                                                                                                            pointBackgroundColor: 'rgba(0, 255, 0, 1)',
+                                                                                                            fill: false
+                                                                                                        },
+                                                                                                        {
+                                                                                                            label: "Kurtosis Value",
+                                                                                                            data: kurtosisValues,
+                                                                                                            borderColor: 'rgba(0, 0, 255, 1)',
+                                                                                                            borderWidth: "1",
+                                                                                                            backgroundColor: 'rgba(0, 0, 255, 0.5)', 
+                                                                                                            pointBackgroundColor: 'rgba(0, 0, 255, 1)',
+                                                                                                            fill: false
+                                                                                                        }
+                                                                                                    ]
+                                                                                                },
+                                                                                                options: {
+                                                                                                    scales: {
+                                                                                                        xAxes: [{
+                                                                                                            type: 'time',
+                                                                                                            time: {
+                                                                                                                unit: 'minute', 
+                                                                                                                displayFormats: {
+                                                                                                                    minute: 'MMM DD, hA' 
+                                                                                                                }
+                                                                                                            },
+                                                                                                            ticks: {
+                                                                                                                maxRotation: 0, 
+                                                                                                                autoSkip: true, 
+                                                                                                                padding: 20
+                                                                                                            },
+                                                                                                            scaleLabel: {
+                                                                                                                display: true,
+                                                                                                                labelString: 'Timestamp'
+                                                                                                            }
+                                                                                                        }],
+                                                                                                        yAxes: [{
+                                                                                                            scaleLabel: {
+                                                                                                                display: true,
+                                                                                                                labelString: 'Values'
+                                                                                                            }
+                                                                                                        }]
+                                                                                                    }
+                                                                                                }
+                                                                                            });
+                                                                                        </script>
+                                                                                        <div class="card">
+                                                                                            <div class="card-body">
+                                                                                                <div id="percentile_graph_for_metric_{{ table.name }}_{{ column.name }}" class="chart-container"></div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <script>
+                                                                                            
+                                                                                            var allDataForColumn = [
+                                                                                                {% for metric in table.metric_data %}
+                                                                                                {% for column_info, column_metric in metric.metric_value.items %}
+                                                                                                {% if column.name == column_info %}
+                                                                                                {% if column_metric.percentiles %}
+                                                                                                {
+                                                                                                    y: [
+                                                                                                        "{{ column_metric.percentiles | get_boxplot_data:0 }}", 
+                                                                                                        "{{ column_metric.percentiles | get_boxplot_data:25 }}", 
+                                                                                                        "{{ column_metric.percentiles | get_boxplot_data:50 }}",
+                                                                                                        "{{ column_metric.percentiles | get_boxplot_data:75 }}", 
+                                                                                                        "{{ column_metric.percentiles | get_boxplot_data:100 }}"
+                                                                                                    ],
+                                                                                                    type: 'box',
+                                                                                                    boxmean: false,
+                                                                                                    name: '{{ metric.timestamp }}'
+                                                                                                },
+                                                                                                {% endif %}
+                                                                                                {% endif %}
+                                                                                                {% endfor %}
+                                                                                                {% endfor %}
+                                                                                            ];
+                                                                                            console.log(allDataForColumn);
+                                                                                            Plotly.newPlot('percentile_graph_for_metric_{{ table.name }}_{{ column.name}}', allDataForColumn, {
+                                                                                                title: 'Box plot',
+                                                                                                margin: {
+                                                                                                    l: 40,
+                                                                                                    r: 20,
+                                                                                                    t: 50,
+                                                                                                    b: 50
+                                                                                                },
+                                                                                                width: '100%', 
+                                                                                                height: '100%',
+                                                                                                autosize: true, 
+                                                                                                responsive: true 
+                                                                                            });
+                                                                                        </script>
+                                                                                    </div>
+                                                                                    {% endfor %}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="tab-pane fade" id="last_logs_{{ table.name }}">
+                                                                <div class="pt-4">
+                                                                    <h4>Last ETL logs: </h4>
+                                                                    <div class="col-md-12">
+                                                                        <div class="card">
+                                                                            <div class="card-body">
+                                                                                <ul class="nav nav-pills mb-4">
+                                                                                    <li class=" nav-item">
+                                                                                        <a href="#extract_{{ table.name }}" data-targetdiv="extract_to_div_{{ table.name }}" data-etldagrunid="{{ table.dag_run_id }}" data-etltask="extract" class="nav-link active triggerFetch" data-etldagid="{{ table.dag_id }}" data-toggle="tab" aria-expanded="true">Extract</a>
+                                                                                    </li>
+                                                                                    <li class="nav-item">
+                                                                                        <a href="#transform_{{ table.name }}" data-targetdiv="transform_to_div_{{ table.name }}" data-etldagrunid="{{ table.dag_run_id }}" data-etltask="transform" class="nav-link triggerFetch" data-etldagid="{{ table.dag_id }}" data-toggle="tab" aria-expanded="false">Transform</a>
+                                                                                    </li>
+                                                                                    <li class="nav-item">
+                                                                                        <a href="#load_{{ table.name }}" data-targetdiv="load_to_div_{{ table.name }}" data-etldagrunid="{{ table.dag_run_id }}" data-etltask="load" class="nav-link triggerFetch" data-etldagid="{{ table.dag_id }}" data-toggle="tab" aria-expanded="false">Load</a>
+                                                                                    </li>
+                                                                                </ul>
+                                                                                <div class="tab-content">
+                                                                                    <div class="tab-pane active logs_view" id="extract_{{ table.name }}">
+                                                                                        <div class="row">
+                                                                                            <div class="col-md-12" id="extract_to_div_{{ table.name }}"></div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div id="transform_{{ table.name }}" class="tab-pane logs_view transform_{{ table.name }}">
+                                                                                        <div class="row">
+                                                                                            <div class="col-md-12" id="transform_to_div_{{ table.name }}"></div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div id="load_{{ table.name }}" class="tab-pane logs_view">
+                                                                                        <div class="row">
+                                                                                            <div class="col-md-12" id="load_to_div_{{ table.name }}"></div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="tab-pane fade" id="chat_with_data_{{ table.name }}">
+                                                                <div class="pt-4">
+                                                                    <div class="col-12">
+                                                                        <div class="card">
+                                                                            <div class="card-header">
+                                                                                <h4 class="card-title">Chat with Data</h4>
+                                                                            </div>
+                                                                            <div class="card-body">
+                                                                                <div class="chat-data-form">
+                                                                                    <input type="text" id="query_of_user_for_{{ table.name }}" placeholder="Type your query...">
+                                                                                    <button onclick="submitQuery(this)" data-targetTable="{{ table.table_id }}" data-queryInput="query_of_user_for_{{ table.name }}" data-queryoutput="queryoutput_{{ table.name }}">Ask</button>
+                                                                                </div>
+                                                                                <div class="chat-response" id="queryoutput_{{ table.name }}" style="max-height: fit-content;">
+
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/raphael/raphael.min.js' %}"></script>
+<script src="{% static 'vendor/morris/morris.min.js' %}"></script>
+<script src="{% static 'vendor/circle-progress/circle-progress.min.js' %}"></script>
+<script src="{% static 'vendor/gaugeJS/dist/gauge.min.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.resize.js' %}"></script>
+<script src="{% static 'vendor/owl-carousel/js/owl.carousel.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.usa.js' %}"></script>
+<script src="{% static 'vendor/jquery.counterup/jquery.counterup.min.js' %}"></script>
+<script src="{% static 'js/dashboard/dashboard-1.js' %}"></script>
+<script src="{% static 'vendor/global/global.min.js' %}"></script>
+<script src="{% static 'js/quixnav-init.js' %}"></script>
+<script src="{% static 'js/custom.min.js' %}"></script>
+<script src="{% static 'vendor/jquery-steps/build/jquery.steps.min.js' %}"></script>
+<script src="{% static 'vendor/jquery-validation/jquery.validate.min.js' %}"></script>
+<script src="{% static 'js/plugins-init/jquery.validate-init.js' %}"></script>
+<script src="{% static 'js/plugins-init/jquery-steps-init.js' %}"></script>
+<script src="{% static 'vendor/peity/jquery.peity.min.js' %}"></script>
+<script src="{% static 'vendor/chart.js/Chart.bundle.min.js'%}"></script>
+<script src="{% static 'js/plugins-init/chartjs-init.js' %}"></script>
+<script src="{% static 'vendor/datatables/js/jquery.dataTables.min.js' %}"></script>
+<script>
+
+    $(".data-attr").peity("donut");
+
+    function showDetails(divId) {
+        event.preventDefault()
+        document.getElementById(divId).classList.toggle('d-none')
+    }
+
+    document.querySelectorAll('.triggerFetch').forEach(function(element) {
+        element.addEventListener('click', function(event) {
+            var divId = this.dataset.targetdiv;
+            var dagRunId = this.dataset.etldagrunid;
+            var dagTask = this.dataset.etltask;
+            var etldagid = this.dataset.etldagid;
+            
+            if (etldagid === null || etldagid === undefined || etldagid === "None") {
+                document.getElementById(divId).innerHTML = `Not runned single time.`;
+                return
+            }
+            if (dagRunId === null || dagRunId === undefined || dagRunId === "None") {
+                document.getElementById(divId).innerHTML = `Not runned single time.`;
+                return
+            }
+            document.getElementById(divId).innerHTML = `Loading <i class="fa fa-spinner" aria-hidden="true"></i>`;
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', 'http://localhost:8000/connector/get_last_etl_logs?dag_run_id=' + dagRunId + '&dag_task=' + dagTask + '&dag_id=' + etldagid, true);
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        var responseJson = JSON.parse(xhr.responseText);
+                        var content = responseJson.content;
+                        content = content.replace(/</g, "&lt;");
+                        content = content.replace(/>/g, "&gt;");
+                        content = content.replace(/\\n/g, "<br>");
+                        document.getElementById(divId).innerHTML = "<p>" + content + "</p>";
+                    } else {
+                        alert('Error occurred while fetching data.');
+                    }
+                }
+            };
+
+            xhr.send();
+        });
+    });
+
+    
+    jQuery(document).ready(function($) {
+        document.querySelectorAll('.getCurrentData').forEach(function(element) {
+            element.addEventListener('click', function(event) {
+                var tableIdentity = "#" + this.dataset.tabletoshow;
+                var requestData = {
+                    'tableInfo': this.dataset.tableinfo
+                };
+                var csrftoken = getCookie('csrftoken');
+
+                if ( $.fn.dataTable.isDataTable(tableIdentity) ) {
+                    $(tableIdentity).DataTable().destroy();
+                    $(tableIdentity).empty();
+                }
+
+                var table = $(tableIdentity);
+                table.html('<p>Loading <i class="fa fa-spinner" aria-hidden="true"></i></p>');
+    
+                $.ajax({
+                    url: 'http://localhost:8000/connector/get_current_data_of_table',
+                    method: 'POST', 
+                    headers: {
+                        'X-CSRFToken': csrftoken  
+                    },
+                    data: requestData,
+                    success: function(response) {
+                        var responseData = response.data; 
+                        var dataColumns = response.data_columns; 
+                        $(tableIdentity).html("");
+                        var table = $(tableIdentity).DataTable({
+                            columns: dataColumns.map(function(columnName) {
+                                return { title: columnName };
+                            }),
+                            createdRow: function(row, data, index) {
+                                $(row).addClass('selected');
+                            }
+                        });
+    
+                        table.clear().draw();
+    
+                        table.rows.add(responseData).draw();
+    
+                        table.on('click', 'tbody tr', function() {
+                            var $row = table.row(this).nodes().to$();
+                            var hasClass = $row.hasClass('selected');
+                            if (hasClass) {
+                                $row.removeClass('selected');
+                            } else {
+                                $row.addClass('selected');
+                            }
+                        });
+    
+                        table.rows().every(function() {
+                            this.nodes().to$().removeClass('selected');
+                        });
+                    },
+                    error: function(xhr, status, error) {
+                        console.error(error); 
+                    }
+                });
+            });
+        });
+    });
+
+    function getCookie(name) {
+        var cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function submitQuery(e) {
+        var csrftoken = getCookie('csrftoken');
+        var targetTable = e.dataset.targettable;
+        var queryInput = "#" + e.dataset.queryinput;
+        var queryOutput = "#" + e.dataset.queryoutput;
+        console.log(targetTable);
+        console.log(queryInput);
+        var query = $(queryInput).val().trim();
+        if (query !== '') {
+            $.ajax({
+            url: 'http://localhost:8000/connector/chat_with_data',
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken  
+            },
+            data: { 'query': query, 'targetTable': targetTable },
+            success: function(response) {
+                var data = response.data
+                var type_of_data = response.type_of_data
+                var query = response.query
+                console.log(data);
+                console.log(type_of_data);
+                var response_div = "";
+                if (type_of_data == 'Image') {
+                    // If type_of_data is Image, set response_div to an image tag
+                    response_div = `<img src="/` + data + `" alt="Image" class="img img-fluid">`;
+                } else if (type_of_data == 'String') {
+                    response_div = '<p>' + data + '</p>';
+                } else if (type_of_data == 'DataFrame') {
+                    var tableHtml = '<table class="table">';
+                    // Add table headers
+                    tableHtml += '<thead><tr>';
+                    $.each(data.column, function(_, columnName) {
+                        tableHtml += '<th>' + columnName + '</th>';
+                    });
+                    tableHtml += '</tr></thead>';
+
+                    // Add table body
+                    tableHtml += '<tbody>';
+                    $.each(data.values, function(_, row) {
+                        tableHtml += '<tr>';
+                        $.each(row, function(_, cellValue) {
+                            tableHtml += '<td>' + cellValue + '</td>';
+                        });
+                        tableHtml += '</tr>';
+                    });
+                    tableHtml += '</tbody></table>';
+                    response_div = tableHtml;
+                }
+                var showingdata = `<div class="recent-comment my-2 border py-2 px-4" style='border-radius: 5px'>
+                        <div class="media">
+                            <div class="media-left">
+                                <img class="media-object img-rounded rounded bg-info p-2" src="` + "{% static 'images/robot.png' %}" + `" alt="...">
+                            </div>
+                            <div class="media-body text-justify" style="overflow-x: scroll;"> <h4>` + query + `</h4>` + response_div + `</div>
+                        </div>
+                    </div>
+                    `;
+                $(queryOutput).prepend(showingdata);
+                $(queryInput).val('');
+            },
+            error: function(xhr, status, error) {
+                // Handle error
+                console.error('Error:', error);
+                var showingdata = `<div class="recent-comment my-2 border py-2 px-4" style='border-radius: 5px'>
+                        <div class="media">
+                            <div class="media-left">
+                                <img class="media-object img-rounded rounded bg-info p-2" src="` + "{% static 'images/openai.png' %}" + `" alt="...">
+                            </div>
+                            <div class="media-body text-justify" style="overflow-x: scroll;"> <h4>` + error + `</h4><p><span class="text-danger">Error: </span><span>` + response_div + `</span></p></div>
+                        </div>
+                    </div>
+                    `;
+                $(queryOutput).prepend(showingdata);
+                $(queryInput).val('');
+            }
+            });
+        }
+    }
+
+</script>
+{% endblock %}

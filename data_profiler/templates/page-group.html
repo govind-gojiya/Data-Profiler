@@ -1,0 +1,192 @@
+{% extends 'includes/_layout.html' %}
+{% block title %}Data_Profiler - Groups{% endblock %}
+{% load static %}
+{% block body %}
+<div class="content-body">
+    <!-- row -->
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text">
+                    <h4>Group Dashboard</h4>
+                    <p class="mb-0">Manage your group</p>
+                </div>
+            </div>
+            <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex flex-wrap gap-2">
+                <button type="button" id="add_group_btn" class="btn btn-warning">Create Group <span class="btn-icon-right"><i class="fa fa-plus"></i></span></button>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xl-6 col-xxl12 d-none" id="add_group_form">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Group details</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="basic-form">
+                            <form method="POST" action="{% url 'create_group' %}">
+                                {% csrf_token %}
+                                <div class="form-group">
+                                    <label>Group name</label>
+                                    <input type="text" name="group_name" id="" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Description</label>
+                                    <textarea name="group_desc" id="" class="form-control" rows="4"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary mt-3">Create</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xl-4 col-lg-6 col-xxl-6 col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Groups</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="recent-comment m-t-15">
+                            {% for group in user_groups %}
+                                {% if group.status == 2 %}
+                                <a href="{% url 'group_detail' group.group_id %}" style="color: inherit; text-decoration: none;">
+                                    <div class="media justify-content-between">
+                                        
+                                        <div class="media-body">
+                                            <h4 class="media-heading">{{ group.group.name }}</h4>
+                                            <p>{{ group.group.description }}</p>
+                                        </div>
+                                        {% if group.group.owner.id == user.id %}
+                                        <div class="media-right">
+                                            <form action="{% url 'delete_group' group.group.group_id %}" method="POST">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-danger btn-sm"><i class="fa fa-trash"></i></button>
+                                            </form>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </a>
+                                {% endif %}
+                            {% empty %}
+                                <p>No groups found.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-4 col-lg-6 col-xxl-6 col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Groups Requested</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table student-data-table m-t-20">
+                                <thead>
+                                    <tr>
+                                        <th>Group Name</th>
+                                        <th>Owner</th>
+                                        <th>Description</th>
+                                        <th>Accept</th>
+                                        <th>Reject</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for requested_group in user_groups %}
+                                    {% if requested_group.status == 1 %}
+                                    <tr>
+                                        <td>{{ requested_group.group.name }}</td>
+                                        <td>{{ requested_group.group.owner.username }}</td>
+                                        <td>{{ requested_group.group.description }}</td>
+                                        <td>
+                                            <form action="{% url 'accept_group_request' requested_group.id %}" method="post">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn ti-plus btn-success"></button>
+                                            </form>
+                                        </td>
+                                        <td>
+                                            <form action="{% url 'reject_group_request' requested_group.id %}" method="post">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn ti-minus btn-danger"></button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-6 col-lg-6 col-xxl-6 col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Group Connectors</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table mb-0 table-responsive-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Group</th>
+                                        <th>Database Type</th>
+                                        <th>Database Name</th>
+                                        <th>Owner</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for connection_details in connections_of_user %}
+                                    {% if connection_details.publish_status == 2 %}
+                                    <tr>
+                                        <td>{{ connection_details.publish_to_group__name }}</td>
+                                        <td>{{ connection_details.database_type }}</td>
+                                        <td>{{ connection_details.database_name }}</td>
+                                        <td>{% if connection_details.publish_to_group__owner == user.id %}You{% else %}{{ connection_details.publish_to_group__owner__username }}{% endif %}</td>
+                                        <td>
+                                            <a href="{% url 'get_table_data' connection_details.meta_id %}" class="btn btn-primary">View</a>
+                                            {% if connection_details.owner == user.id %}
+                                            <a href="{% url 'remove_connector_details' connection_details.meta_id %}" class="btn btn-danger">Delete</a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/global/global.min.js' %}"></script>
+<script src="{% static 'js/quixnav-init.js' %}"></script>
+<script src="{% static 'js/custom.min.js' %}"></script>
+<script src="{% static 'vendor/raphael/raphael.min.js' %}"></script>
+<script src="{% static 'vendor/morris/morris.min.js' %}"></script>
+<script src="{% static 'vendor/circle-progress/circle-progress.min.js' %}"></script>
+<script src="{% static 'vendor/chart.js/Chart.bundle.min.js' %}"></script>
+<script src="{% static 'vendor/gaugeJS/dist/gauge.min.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.resize.js' %}"></script>
+<script src="{% static 'vendor/owl-carousel/js/owl.carousel.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.usa.js' %}"></script>
+<script src="{% static 'vendor/jquery.counterup/jquery.counterup.min.js' %}"></script>
+<script src="{% static 'js/dashboard/dashboard-1.js' %}"></script>
+<script>
+    add_group_btn = document.getElementById("add_group_btn");
+    add_group_form = document.getElementById("add_group_form");
+    
+    add_group_btn.addEventListener('click', ()=> {
+        add_group_form.classList.toggle("d-none")
+    })
+
+</script>
+{% endblock %}

@@ -1,0 +1,251 @@
+{% extends 'includes/_layout.html' %}
+{% block title %}Data_Profiler - Test Form{% endblock %}
+{% load static %}
+{% block styles %}
+<link href="{% static 'vendor/jquery-steps/css/jquery.steps.css' %}" rel="stylesheet">
+<link href="{% static 'css/style.css' %}" rel="stylesheet">
+{% endblock %}
+{% block body %}
+<div class="content-body">
+    <!-- row -->
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text">
+                    <h4 class="mb-2">Provide Details</h4>
+                    <h5>Service: {{ connector_detail.database_type }} | Database: {{ connector_detail.database_name }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12 col-lg-12">
+                <div class="card">
+                    <div class="card-body">
+                        <form method="post" class="row" action="{% url 'add_test' %}">
+                            {% csrf_token %}
+                            <input type="hidden" class="form-control" name="connector_detail" value="{{ connector_detail.meta_id }}">
+                            <div class="col-md-6 form-group">
+                                <label for="id_for_name"><strong>Test Name: </strong></label>
+                                <input type="text" class="form-control" name="name" id="id_for_name">
+                            </div>
+
+                            <div class="col-md-6 form-group">
+                                <label for="id_for_test_type"><strong>Test Type:</strong></label>
+                                <select name="test_type" class="form-control" id="id_for_test_type">
+                                    <option value="1">Table</option>
+                                    <option value="2">Column</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 form-group">
+                                <label for="table_name"><strong>Table Name</strong></label>
+                                <select name="table_name" class="form-control" id="table_name">
+                                    {% for table in table_list %}
+                                    <option value="{{ table.table_id }}">{{ table.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 form-group d-none" id="column_select_div">
+                                <label for="column_name"><strong>Column Name</strong></label>
+                                <select name="column_name" class="form-control" id="column_name">
+                                </select>
+                            </div>
+
+                            <div class="col-md-12 form-group text-center" id="get_testcase_btn_div">
+                                <button type="button" class="btn btn-primary mt-3" onclick="populateTestCases()">Get Testcases</button>
+                            </div>
+
+                            <div class="col-md-6 form-group d-none" id="testcase_select_div">
+                                <label for="testcase_name"><strong>Testcase</strong></label>
+                                <select name="testcase_name" class="form-control" id="testcase_name">
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 form-group d-none" id="test_purpose_value_select">
+                                <label for="test_purpose_value"><strong>Value</strong></label>
+                                <input name="test_purpose_value" class="form-control" id="test_purpose_value">
+                            </div>
+
+                            <div class="col-md-6 form-group d-none row" id="test_purpose_value_select_range">
+                                <div class="col-md-6">
+                                    <label for="test_purpose_value_range_min"><strong>Min</strong></label>
+                                    <input type="number" name="test_purpose_value_range_min" class="form-control" id="test_purpose_value_range_min">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="test_purpose_value_range_max"><strong>Max</strong></label>
+                                    <input type="number" name="test_purpose_value_range_max" class="form-control" id="test_purpose_value_range_max">
+                                </div>
+                            </div>
+
+                            <div class="col-md-12 form-group text-center d-none" id="store_test_btn_div">
+                                <button type="submit" class="btn btn-primary mt-3">Run Test</button>
+                            </div>
+
+                            <script>
+                                var testTypeSelect = document.getElementById('id_for_test_type');
+                                var tableSelect = document.getElementById('table_name');
+                                var columnSelectDiv = document.getElementById('column_select_div');
+                                var columnSelect = document.getElementById('column_name');
+                                var testcaseSelectDiv = document.getElementById('testcase_select_div');
+                                var testcaseSelect = document.getElementById('testcase_name');
+                                var testPurposeValueDiv = document.getElementById('test_purpose_value_select');
+                                var testPurposeValue = document.getElementById('test_purpose_value');
+                                var testPurposeValueRangeDiv = document.getElementById('test_purpose_value_select_range');
+                                var storeTestBtnDiv = document.getElementById('store_test_btn_div');
+                                var testPurposeRangeMax = document.getElementById('test_purpose_value_range_max');
+                                
+
+                                testTypeSelect.addEventListener('change', function() {
+                                    var selectedValue = this.value;
+                                    var tableValue = tableSelect.value;
+                                    if (selectedValue == 2) {
+                                        populateColumnNames(tableValue);
+                                    } else {
+                                        if (!columnSelectDiv.classList.contains('d-none')) {
+                                            columnSelectDiv.classList.add('d-none')
+                                        }
+                                    }
+                                });
+
+                                tableSelect.addEventListener('change', function() {
+                                    var tableValue = this.value;
+                                    var selectedValue = testTypeSelect.value;
+                                    if (selectedValue == 2) {
+                                        populateColumnNames(tableValue);
+                                    }
+                                });
+
+                                function populateColumnNames(selectedValue) {
+                                    var test_type = testTypeSelect.value;
+                                    var column_div = columnSelectDiv;
+                                    if (test_type == 2) {
+                                        var columnNames = [
+                                            {% for column in column_list %}
+                                            ['{{ column.name }}', {{ column.column_id }}, {{ column.table__table_id }}],
+                                            {% endfor %}
+                                        ]; 
+                                        columnSelect.innerHTML = '';
+                                        column_div.classList.remove('d-none')
+                                        columnNames.forEach(function(columnName) {
+                                            if (columnName[2] == selectedValue) {
+                                                var option = document.createElement('option');
+                                                option.text = columnName[0];
+                                                option.value = columnName[1];
+                                                columnSelect.appendChild(option);
+                                            }
+                                        });
+                                    }
+                                }
+
+                                function populateTestCases() {
+                                    var testType = testTypeSelect.value;
+                                    var testAttr = "";
+                                    if (!testPurposeValueRangeDiv.classList.contains('d-none')) {
+                                        testPurposeValueRangeDiv.classList.add('d-none')
+                                    }
+                                    if (!testPurposeValueDiv.classList.contains('d-none')) {
+                                        testPurposeValueDiv.classList.add('d-none')
+                                    }
+                                    if (!storeTestBtnDiv.classList.contains('d-none')) {
+                                        storeTestBtnDiv.classList.add('d-none')
+                                    }
+                                    if (testType == 1) {
+                                        testAttr = tableSelect.value;
+                                    } else {
+                                        testAttr = columnSelect.value;
+                                    }
+                                    console.log("Called testcase");
+                                    fetch('http://localhost:8000/test/get_testcase_for_form/?test_type=' + testType + '&data=' + testAttr)
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            testcaseSelect.innerHTML = ''; 
+                                            testcaseSelectDiv.classList.remove('d-none');  
+                                            data['data'].forEach(testcase => {
+                                                var option = document.createElement('option');
+                                                option.text = testcase[0]; 
+                                                option.value = testcase[0]; 
+                                                testcaseSelect.appendChild(option);
+                                                inputtype = testcase[1];
+                                            });
+                                            changeTestPurposetype(data["data"][0][1]);
+                                            testPurposeValueDiv.classList.remove('d-none');
+                                        })
+                                        .catch(error => {
+                                            console.error('Error fetching column names:', error);
+                                        });
+                                }
+
+                                function changeTestPurposetype(inputtype) {
+                                    if (inputtype === 'String') {
+                                        testPurposeValue.setAttribute('type', 'text');
+                                        testPurposeValue.setAttribute('placeholder', 'Enter string value');
+                                    } else if (inputtype === 'Number') {
+                                        testPurposeValue.setAttribute('type', 'number');
+                                        testPurposeValue.setAttribute('placeholder', 'Enter numeric value');
+                                    } else {
+                                        storeTestBtnDiv.classList.remove('d-none')
+                                        if (!testPurposeValueRangeDiv.classList.contains('d-none')) {
+                                            testPurposeValueRangeDiv.classList.add('d-none')
+                                        }
+                                    }
+                                };
+
+                                testcaseSelect.addEventListener('change', function(e) {
+                                    var testPurpose = testcaseSelect.value;
+                                    if (testPurpose == "Column values between ") {
+                                        testPurposeValueRangeDiv.classList.remove('d-none');
+                                        testPurposeValueDiv.classList.add('d-none');
+                                    } else if (testPurpose == "Column minimum value" || testPurpose == "Column maximum value") {
+                                        if (!testPurposeValueRangeDiv.classList.contains('d-none')) {
+                                            testPurposeValueRangeDiv.classList.add('d-none')
+                                        }
+                                        if (!testPurposeValueDiv.classList.contains('d-none')) {
+                                            testPurposeValueDiv.classList.add('d-none')
+                                        }
+                                        storeTestBtnDiv.classList.remove('d-none')
+                                    } else {
+                                        if (!testPurposeValueRangeDiv.classList.contains('d-none')) {
+                                            testPurposeValueRangeDiv.classList.add('d-none')
+                                        }
+                                        testPurposeValueDiv.classList.remove('d-none');
+                                    }
+                                });
+
+                                testPurposeValue.addEventListener('keyup', function(e) {
+                                    storeTestBtnDiv.classList.remove('d-none')
+                                });
+                                
+                                testPurposeRangeMax.addEventListener('keyup',function(e) {
+                                    storeTestBtnDiv.classList.remove('d-none')
+                                })
+                            </script>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/raphael/raphael.min.js' %}"></script>
+<script src="{% static 'vendor/morris/morris.min.js' %}"></script>
+<script src="{% static 'vendor/circle-progress/circle-progress.min.js' %}"></script>
+<script src="{% static 'vendor/chart.js/Chart.bundle.min.js' %}"></script>
+<script src="{% static 'vendor/gaugeJS/dist/gauge.min.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.resize.js' %}"></script>
+<script src="{% static 'vendor/owl-carousel/js/owl.carousel.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.usa.js' %}"></script>
+<script src="{% static 'vendor/jquery.counterup/jquery.counterup.min.js' %}"></script>
+<script src="{% static 'js/dashboard/dashboard-1.js' %}"></script>
+<script src="{% static 'vendor/global/global.min.js' %}"></script>
+<script src="{% static 'js/quixnav-init.js' %}"></script>
+<script src="{% static 'js/custom.min.js' %}"></script>
+<script src="{% static 'vendor/jquery-steps/build/jquery.steps.min.js' %}"></script>
+<script src="{% static 'vendor/jquery-validation/jquery.validate.min.js' %}"></script>
+<script src="{% static 'js/plugins-init/jquery.validate-init.js' %}"></script>
+<script src="{% static 'js/plugins-init/jquery-steps-init.js' %}"></script>
+{% endblock %}

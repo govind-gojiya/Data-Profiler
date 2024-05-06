@@ -1,0 +1,126 @@
+{% extends 'includes/_layout.html' %}
+{% block title %}Data_Profiler - Test Results{% endblock %}
+{% load static %}
+{% block styles %}
+<link href="{% static 'vendor/jquery-steps/css/jquery.steps.css' %}" rel="stylesheet">
+<link href="{% static 'css/style.css' %}" rel="stylesheet">
+<script src="{% static 'vendor/datatables/js/jquery.dataTables.min.js' %}"></script>
+<link href="{% static 'vendor/datatables/css/jquery.dataTables.min.css' %}" rel="stylesheet">
+{% endblock %}
+{% block body %}
+<div class="content-body">
+    <!-- row -->
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text">
+                    <h4>Test result</h4>
+                    <p class="mb-0">Identify the issuess by examine the test result.</p>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">All Performed Test Results</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-responsive-sm display" id="all_connectors_test">
+                                <thead>
+                                    <tr>
+                                        <th>Service Type</th>
+                                        <th>Database Name</th>
+                                        <th>Test Name</th>
+                                        <th>Test Purpose</th>
+                                        <th>Test Value</th>
+                                        <th>Status</th>
+                                        <th>Result</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for test_detail in test_details %}
+                                    <tr>
+                                        <td>{{ test_detail.table.metadata.database_type }}</td>
+                                        <td>{{ test_detail.table.metadata.database_name }}</td>
+                                        <td>{{ test_detail.name }}</td>
+                                        <td>{{ test_detail.test_purpose }}</td>
+                                            {% if test_detail.test_purpose_value.value %}
+                                                <td>{{ test_detail.test_purpose_value.value }}</td>
+                                            {% elif test_detail.test_purpose_value.min and test_detail.test_purpose_value.max %}
+                                                <td>Min: {{ test_detail.test_purpose_value.min }}<br>Max: {{ test_detail.test_purpose_value.max }}</td>
+                                            {% else %}
+                                                <td> - </td>
+                                            {% endif %}
+                                        {% if test_detail.status == 1 %}
+                                        <td>Queued</td>
+                                        {% endif %}
+                                        {% if test_detail.status == 2 %}
+                                        <td>Running</td>
+                                        {% endif %}
+                                        {% if test_detail.status == 3 %}
+                                        <td>Success</td>
+                                        {% endif %}
+                                        {% if test_detail.status == 4 %}
+                                        <td>Fail</td>
+                                        {% endif %}
+                                        <td>{{ test_detail.result.result }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/raphael/raphael.min.js' %}"></script>
+<script src="{% static 'vendor/morris/morris.min.js' %}"></script>
+<script src="{% static 'vendor/circle-progress/circle-progress.min.js' %}"></script>
+<script src="{% static 'vendor/chart.js/Chart.bundle.min.js' %}"></script>
+<script src="{% static 'vendor/gaugeJS/dist/gauge.min.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.resize.js' %}"></script>
+<script src="{% static 'vendor/owl-carousel/js/owl.carousel.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.usa.js' %}"></script>
+<script src="{% static 'vendor/jquery.counterup/jquery.counterup.min.js' %}"></script>
+<script src="{% static 'js/dashboard/dashboard-1.js' %}"></script>
+<script src="{% static 'vendor/global/global.min.js' %}"></script>
+<script src="{% static 'js/quixnav-init.js' %}"></script>
+<script src="{% static 'js/custom.min.js' %}"></script>
+<script src="{% static 'vendor/jquery-steps/build/jquery.steps.min.js' %}"></script>
+<script src="{% static 'vendor/jquery-validation/jquery.validate.min.js' %}"></script>
+<script src="{% static 'js/plugins-init/jquery.validate-init.js' %}"></script>
+<script src="{% static 'js/plugins-init/jquery-steps-init.js' %}"></script>
+<script src="{% static 'vendor/datatables/js/jquery.dataTables.min.js' %}"></script>
+<script>
+    $(document).ready(function(e) {
+        var all_connector = "#all_connectors_test";
+        var table = $(all_connector).DataTable({
+            createdRow: function(row, data, index) {
+                $(row).addClass('selected');
+            }
+        });
+
+        table.on('click', 'tbody tr', function() {
+            var $row = table.row(this).nodes().to$();
+            var hasClass = $row.hasClass('selected');
+            if (hasClass) {
+                $row.removeClass('selected');
+            } else {
+                $row.addClass('selected');
+            }
+        });
+
+        table.rows().every(function() {
+            this.nodes().to$().removeClass('selected');
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,179 @@
+{% extends 'includes/_layout.html' %}
+{% block title %}Data_Profiler - Connect{% endblock %}
+{% load static %}
+{% block styles %}
+<link href="{% static 'vendor/jquery-steps/css/jquery.steps.css' %}" rel="stylesheet">
+<link href="{% static 'css/style.css' %}" rel="stylesheet">
+{% endblock %}
+{% block body %}
+<div class="content-body">
+    <!-- row -->
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text">
+                    <h4 class="mb-2">Provide Details</h4>
+                    <h5>Service: {{ connector_database }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="" id="add_connector_form">
+            <div class="col-md-12 col-lg-12">
+                <div class="card">
+                    <div class="card-body">
+                        <form {% if tables_list %}action="{% url 'add_connector_data' %}" {% else %}action="{% url 'provide_connector_form' %}" {% endif %}method="post" class="row">
+                            {% csrf_token %}
+                            <input type="hidden" class="form-control" name="connector_database" value="{{ connector_database }}">
+                            {% for field in form %}
+                            <div class="col-md-6 form-group">
+                                <label for="{{ field.id_for_label }}"><strong>{{ field.label }}</strong></label>
+                                <input type="{{ field.field.widget.input_type }}" class="form-control" name="{{ field.html_name }}" {% if field.initial and field.data is None %}value="{{ field.initial }}"{% endif %} {% if field.data %}value="{{ field.data }}" readonly{% endif %}>
+                            </div>
+                            {% endfor %}
+                            {% if tables_list %}
+                            <div class="col-md-12 mt-3">
+                                <h3>Select Table you want to provide and schedule time: </h3>
+                            </div>
+                            {% for table in tables_list %}
+                            <div class="col-md-4 form-group">
+                                <h5>Table:</h5>
+                                <div class="form-check ml-2">
+                                    <input class="form-check-input" type="checkbox" id="table_{{ table }}" name="table_{{ table }}" checked="True">
+                                    <label class="form-check-label" for="table_{{ table }}"> {{ table }}</label>
+                                </div>
+                            </div>
+                            <div class="col-md-8 row">
+                                <div class="col-md-6 form-group">
+                                    <label for="selectInput"><strong>Select an option:</strong></label>
+                                    <select name="schedule_type_{{ table }}" class="selectInput form-control">
+                                        <option value="Minutes">Minutes</option>
+                                        <option value="Hour">Hour</option>
+                                        <option value="Day of Month">Day of Month</option>
+                                        <option value="Month of Year">Month of Year</option>
+                                        <option value="Day of Week">Day of Week</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 form-group">
+                                    <label for="selectNumber"><strong>Select a number:</strong></label>
+                                    <select name="schedule_value_{{ table }}" class="selectNumber form-control">
+                                    </select>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            <div class="col-md-6 form-group">
+                                <label for="visiablity"><strong>Select visiablity:</strong></label>
+                                <select name="visiablity" class="form-control" id="visiablity">
+                                    <option value="Personal" selected>Personal</option>
+                                    <option value="Group">Group</option>
+                                    <option value="Organization">Organization</option>
+                                    <option value="Public">Public</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 form-group d-none" id="groupsOfUser">
+                                <label for="groups_of_user"><strong>Select group:</strong></label>
+                                <select name="group_to_visiable" class="form-control" id="groups_of_user">
+                                    {% for group in groups %}
+                                    <option value="{{ group.group_id }}">{{ group.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-12 form-group text-center">
+                                <button type="submit" class="btn btn-primary mt-3 ">Connect my data</button>
+                            </div>
+                            {% else %}
+                            <div class="col-md-12 form-group text-center">
+                                <button type="submit" class="btn btn-primary mt-3 ">Test</button>
+                            </div>
+                            {% endif %}
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/raphael/raphael.min.js' %}"></script>
+<script src="{% static 'vendor/morris/morris.min.js' %}"></script>
+<script src="{% static 'vendor/circle-progress/circle-progress.min.js' %}"></script>
+<script src="{% static 'vendor/chart.js/Chart.bundle.min.js' %}"></script>
+<script src="{% static 'vendor/gaugeJS/dist/gauge.min.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.resize.js' %}"></script>
+<script src="{% static 'vendor/owl-carousel/js/owl.carousel.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.usa.js' %}"></script>
+<script src="{% static 'vendor/jquery.counterup/jquery.counterup.min.js' %}"></script>
+<script src="{% static 'js/dashboard/dashboard-1.js' %}"></script>
+<script src="{% static 'vendor/global/global.min.js' %}"></script>
+<script src="{% static 'js/quixnav-init.js' %}"></script>
+<script src="{% static 'js/custom.min.js' %}"></script>
+<script>
+
+    document.querySelector('#visiablity').addEventListener('change', e => {
+        var visiable = document.querySelector('#visiablity').value;
+        if (visiable == "Group") {
+            document.querySelector('#groupsOfUser').classList.remove('d-none');
+        } else {
+            var groupsClass = document.querySelector('#groupsOfUser');
+            if (!groupsClass.classList.contains('d-none')) {
+                groupsClass.classList.add('d-none');
+            }
+        }
+    });
+
+    document.querySelectorAll('.selectInput').forEach(item => {
+        item.addEventListener('change', updateMinMax);
+    });
+
+    document.querySelectorAll('.selectInput').forEach(item => {
+        updateMinMax({ target: item });
+    });
+
+    function updateMinMax(event) {
+        var selectValue = event.target.value;
+        var numberInput = event.target.parentElement.parentElement.querySelector('.selectNumber');
+        var min, max;
+        
+        switch(selectValue) {
+            case 'Minutes':
+            min = 1;
+            max = 59;
+            break;
+            case 'Hour':
+            min = 1;
+            max = 23;
+            break;
+            case 'Day of Month':
+            min = 1;
+            max = 31;
+            break;
+            case 'Month of Year':
+            min = 1;
+            max = 12;
+            break;
+            case 'Day of Week':
+            min = 0;
+            max = 6;
+            break;
+            default:
+            min = 0;
+            max = 0;
+            break;
+        }
+
+        numberInput.innerHTML = ''; // Clear previous options
+        for (var i = min; i <= max; i++) {
+            var option = document.createElement('option');
+            option.value = i;
+            option.textContent = i;
+            numberInput.appendChild(option);
+        }
+    }
+</script>
+<script src="{% static 'vendor/jquery-steps/build/jquery.steps.min.js' %}"></script>
+<script src="{% static 'vendor/jquery-validation/jquery.validate.min.js' %}"></script>
+<script src="{% static 'js/plugins-init/jquery.validate-init.js' %}"></script>
+<script src="{% static 'js/plugins-init/jquery-steps-init.js' %}"></script>
+{% endblock %}

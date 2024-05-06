@@ -1,0 +1,133 @@
+{% extends 'includes/_layout.html' %}
+{% block title %}Data_Profiler - Profile{% endblock %}
+{% load static %}
+{% block styles %}
+<link href="{% static 'vendor/jquery-steps/css/jquery.steps.css' %}" rel="stylesheet">
+<link href="{% static 'css/style.css' %}" rel="stylesheet">
+{% endblock %}
+{% block body %}
+<div class="content-body">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="profile">
+                    <div class="profile-head">
+                        <div class="profile-img row justify-content-center">
+                            <div class="col-xl-8" style="max-width: 200px;">
+                                <img src="{% static user.profile_photo %}" class="img-fluid rounded-circle" alt="">
+                            </div>
+                        </div>
+                        <div class="profile-info">
+                            <div class="row justify-content-center">
+                                <div class="col-xl-8">
+                                    <div class="row">
+                                        <div class="col-xl-6 col-sm-6 border-right-1 prf-col">
+                                            <div class="profile-name">
+                                                <p>Username</p>
+                                                <h4 class="text-primary">{{ user.username }}</h4>
+                                            </div>
+                                        </div>
+                                        <div class="col-xl-6 col-sm-6 border-right-1 prf-col">
+                                            <div class="profile-email">
+                                                <p>Email</p>
+                                                <h4 class="text-muted">{{ user.email }}</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="profile-statistics">
+                            <div class="text-center mt-4 border-bottom-1 pb-3">
+                                <div class="row">
+                                    <div class="col-12 mb-2">
+                                        <h2 class="text-center">Connectors</h2>
+                                    </div>
+                                    <div class="col">
+                                        <h3 class="m-b-0">{{ connectors_details.num_personal }}</h3><span>Personal</span>
+                                    </div>
+                                    <div class="col">
+                                        <h3 class="m-b-0">{{ connectors_details.num_group }}</h3><span>Group</span>
+                                    </div>
+                                    <div class="col">
+                                        <h3 class="m-b-0">{{ connectors_details.num_organization }}</h3><span>Organization</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="profile-blog pt-3 border-bottom-1 pb-1">
+                            <h5 class="text-primary d-inline">Organization</h5>
+                            <h4 class="mb-0 mt-2">{{ user_organization.name }}</h4>
+                            <p>{{ user_organization.description }}</p>
+                        </div>
+                        <div class="profile-news mt-4 pb-3">
+                            <h5 class="text-primary d-inline">Groups</h5>
+                            {% for group in user_groups %}
+                            <div class="media pb-3">
+                                <div class="media-body">
+                                    <h5 class="mb-0">{{ group.group.name }}</h5>
+                                    <p>{{ group.group.description }}</p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="profile-tab">
+                            <div class="custom-tab-1">
+                                <ul class="nav nav-tabs">
+                                    <li class="nav-item"><a href="#personalinfo" data-toggle="tab" class="nav-link active show">Personal info</a>
+                                    </li>
+                                </ul>
+                                <div class="tab-content">
+                                    <div id="personalinfo" class="tab-pane fade active show">
+                                        <div class="pt-3">
+                                            <div class="settings-form">
+                                                <form action="" method="post" enctype="multipart/form-data">
+                                                    {% csrf_token %}
+                                                    <div class="form-row">
+                                                        <div class="form-group col-md-6">
+                                                            <label>Username</label>
+                                                            <input type="text" placeholder="Username" name="username" value="{{ user.username }}" class="form-control">
+                                                        </div>
+                                                        <div class="form-group col-md-6">
+                                                            <label>Email</label>
+                                                            <input type="email" placeholder="Email" name="email" value="{{ user.email }}" class="form-control">
+                                                        </div>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label>Profile Photo</label>
+                                                        <input type="file" name="profile_photo" class="form-control">
+                                                    </div>
+                                                    <button class="btn btn-primary" type="submit">Update</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/global/global.min.js' %}"></script>
+<script src="{% static 'js/quixnav-init.js' %}"></script>
+<script src="{% static 'js/custom.min.js' %}"></script>
+{% endblock %}

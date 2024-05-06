@@ -1,0 +1,120 @@
+{% extends 'includes/_layout.html' %}
+{% block title %}Data_Profiler - Test Perform{% endblock %}
+{% load static %}
+{% block styles %}
+<link href="{% static 'vendor/jquery-steps/css/jquery.steps.css' %}" rel="stylesheet">
+<link href="{% static 'css/style.css' %}" rel="stylesheet">
+<script src="{% static 'vendor/datatables/js/jquery.dataTables.min.js' %}"></script>
+<link href="{% static 'vendor/datatables/css/jquery.dataTables.min.css' %}" rel="stylesheet">
+{% endblock %}
+{% block body %}
+<div class="content-body">
+    <!-- row -->
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text">
+                    <h4>Test your connector</h4>
+                    <p class="mb-0">know your data more by doing tests.</p>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">All Connectors</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-responsive-sm display" id="all_connector">
+                                <thead>
+                                    <tr>
+                                        <th>Seervice Type</th>
+                                        <th>Database Name</th>
+                                        <th>Visiablity</th>
+                                        <th>Group / Organization</th>
+                                        <th>Test</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for connection_details in connections_of_user %}
+                                    <tr>
+                                        <td>{{ connection_details.database_type }}</td>
+                                        <td>{{ connection_details.database_name }}</td>
+                                        {% if connection_details.publish_status == 1 %}
+                                        <td>Personal</td>
+                                        {% endif %}
+                                        {% if connection_details.publish_status == 2 %}
+                                        <td>Group</td>
+                                        {% endif %}
+                                        {% if connection_details.publish_status == 3 %}
+                                        <td>Organization</td>
+                                        {% endif %}
+                                        {% if connection_details.publish_status == 4 %}
+                                        <td>Public</td>
+                                        {% endif %}
+                                        {% if connection_details.publish_status != 1 and connection_details.publish_status != 4 %}
+                                        <td>{{ connection_details.publish_to_group__name }}</td>
+                                        {% else %}
+                                        <td> - </td>
+                                        {% endif %}
+                                        <td><a href="{% url 'get_test_form' connection_details.meta_id %}" class="btn btn-primary">Select to test</a></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/raphael/raphael.min.js' %}"></script>
+<script src="{% static 'vendor/morris/morris.min.js' %}"></script>
+<script src="{% static 'vendor/circle-progress/circle-progress.min.js' %}"></script>
+<script src="{% static 'vendor/chart.js/Chart.bundle.min.js' %}"></script>
+<script src="{% static 'vendor/gaugeJS/dist/gauge.min.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.resize.js' %}"></script>
+<script src="{% static 'vendor/owl-carousel/js/owl.carousel.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.usa.js' %}"></script>
+<script src="{% static 'vendor/jquery.counterup/jquery.counterup.min.js' %}"></script>
+<script src="{% static 'js/dashboard/dashboard-1.js' %}"></script>
+<script src="{% static 'vendor/global/global.min.js' %}"></script>
+<script src="{% static 'js/quixnav-init.js' %}"></script>
+<script src="{% static 'js/custom.min.js' %}"></script>
+<script src="{% static 'vendor/jquery-steps/build/jquery.steps.min.js' %}"></script>
+<script src="{% static 'vendor/jquery-validation/jquery.validate.min.js' %}"></script>
+<script src="{% static 'js/plugins-init/jquery.validate-init.js' %}"></script>
+<script src="{% static 'js/plugins-init/jquery-steps-init.js' %}"></script>
+<script src="{% static 'vendor/datatables/js/jquery.dataTables.min.js' %}"></script>
+<script>
+    $(document).ready(function(e) {
+        var all_connector = "#all_connector";
+        var table = $(all_connector).DataTable({
+            createdRow: function(row, data, index) {
+                $(row).addClass('selected');
+            }
+        });
+
+        table.on('click', 'tbody tr', function() {
+            var $row = table.row(this).nodes().to$();
+            var hasClass = $row.hasClass('selected');
+            if (hasClass) {
+                $row.removeClass('selected');
+            } else {
+                $row.addClass('selected');
+            }
+        });
+
+        table.rows().every(function() {
+            this.nodes().to$().removeClass('selected');
+        });
+    });
+</script>
+{% endblock %}

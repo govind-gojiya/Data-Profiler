@@ -1,0 +1,237 @@
+{% extends 'includes/_layout.html' %}
+{% block title %}Data_Profiler - Dashboard{% endblock %}
+{% load static %}
+{% block styles %}
+<link href="{% static 'vendor/jquery-steps/css/jquery.steps.css' %}" rel="stylesheet">
+<link href="{% static 'css/style.css' %}" rel="stylesheet">
+{% endblock %}
+{% block body %}
+<div class="content-body">
+    <!-- row -->
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text">
+                    <h4>Add your connector</h4>
+                    <p class="mb-0">By giving access to your data get useful insights.</p>
+                </div>
+            </div>
+            <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex flex-wrap gap-2">
+                <button type="button" id="add_connector_btn" class="btn btn-warning">Add connector <span class="btn-icon-right"><i class="fa fa-plus"></i></span>
+                </button>
+            </div>
+        </div>
+        <div class="row d-none justify-content-center" id="add_connector_form">
+            <div class="col-md-6 col-sm-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Provide details</h4>
+                    </div>
+                    <div class="card-body">
+                        <form action="{% url 'provide_connector_form' %}" method="post">
+                            {% csrf_token %}
+                            <div>
+                                <h4>Connector info</h4>
+                                <section>
+                                    <div class="row">
+                                        <div class="col-lg-12 mb-2 form-group">
+                                            <label>Select database host</label>
+                                            <select name="connector_database" class="form-control">
+                                                <option value="Postgres">Postgres</option>
+                                                <option value="Snowflake">Snowflake</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-lg-12 mb-4">
+                                            <button type="submit" class="btn btn-primary mt-3">Select</button>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Personal Connectors</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table mb-0 table-responsive-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Database Type</th>
+                                        <th>Database Name</th>
+                                        <th>View</th>
+                                        <th>Delete</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for connection_details in connections_of_user %}
+                                    {% if connection_details.publish_status == 1 %}
+                                    <tr>
+                                        <td>{{ connection_details.database_type }}</td>
+                                        <td>{{ connection_details.database_name }}</td>
+                                        <td><a href="{% url 'get_table_data' connection_details.meta_id %}" class="btn btn-primary">View</a></td>
+                                        <td><a href="{% url 'remove_connector_details' connection_details.meta_id %}" class="btn btn-danger">Delete</a></td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Group Connectors</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table mb-0 table-responsive-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Group</th>
+                                        <th>Database Type</th>
+                                        <th>Database Name</th>
+                                        <th>Owner</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for connection_details in connections_of_user %}
+                                    {% if connection_details.publish_status == 2 %}
+                                    <tr>
+                                        <td>{{ connection_details.publish_to_group__name }}</td>
+                                        <td>{{ connection_details.database_type }}</td>
+                                        <td>{{ connection_details.database_name }}</td>
+                                        <td>{% if connection_details.publish_to_group__owner == user.id %}You{% else %}{{ connection_details.publish_to_group__owner__username }}{% endif %}</td>
+                                        <td>
+                                            <a href="{% url 'get_table_data' connection_details.meta_id %}" class="btn btn-primary">View</a>
+                                            {% if connection_details.owner == user.id %}
+                                            <a href="{% url 'remove_connector_details' connection_details.meta_id %}" class="btn btn-danger">Delete</a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Organization Connectors</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table mb-0 table-responsive-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Database Type</th>
+                                        <th>Database Name</th>
+                                        <th>Owner</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for connection_details in connections_of_user %}
+                                    {% if connection_details.publish_status == 3 %}
+                                    <tr>
+                                        <td>{{ connection_details.database_type }}</td>
+                                        <td>{{ connection_details.database_name }}</td>
+                                        <td>{% if connection_details.publish_to_group__owner == user.id %}You{% else %}{{ connection_details.publish_to_group__owner__username }}{% endif %}</td>
+                                        <td>
+                                            <a href="{% url 'get_table_data' connection_details.meta_id %}" class="btn btn-primary">View</a>
+                                            {% if connection_details.publish_to_group__owner == user.id %}
+                                            <a href="{% url 'remove_connector_details' connection_details.meta_id %}" class="btn btn-danger">Delete</a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Public Connectors</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive table-responsive-sm">
+                            <table class="table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Publisher</th>
+                                        <th>Database Type</th>
+                                        <th>Database Name</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for connection_details in connections_of_user %}
+                                    {% if connection_details.publish_status == 4 %}
+                                    <tr>
+                                        <td>{{ connection_details.owner__username }}</td>
+                                        <td>{{ connection_details.database_type }}</td>
+                                        <td>{{ connection_details.database_name }}</td>
+                                        <td>
+                                            <a href="{% url 'get_table_data' connection_details.meta_id %}" class="btn btn-primary">View</a>
+                                            {% if connection_details.owner == user.id %}
+                                            <a href="{% url 'remove_connector_details' connection_details.meta_id %}" class="btn btn-danger">Delete</a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/raphael/raphael.min.js' %}"></script>
+<script src="{% static 'vendor/morris/morris.min.js' %}"></script>
+<script src="{% static 'vendor/circle-progress/circle-progress.min.js' %}"></script>
+<script src="{% static 'vendor/chart.js/Chart.bundle.min.js' %}"></script>
+<script src="{% static 'vendor/gaugeJS/dist/gauge.min.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.resize.js' %}"></script>
+<script src="{% static 'vendor/owl-carousel/js/owl.carousel.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.usa.js' %}"></script>
+<script src="{% static 'vendor/jquery.counterup/jquery.counterup.min.js' %}"></script>
+<script src="{% static 'js/dashboard/dashboard-1.js' %}"></script>
+<script src="{% static 'vendor/global/global.min.js' %}"></script>
+<script src="{% static 'js/quixnav-init.js' %}"></script>
+<script src="{% static 'js/custom.min.js' %}"></script>
+<script>
+    add_connector_btn = document.getElementById("add_connector_btn");
+    add_connector_form = document.getElementById("add_connector_form");
+
+    add_connector_btn.addEventListener('click', ()=> {
+        add_connector_form.classList.toggle("d-none")
+    })
+</script>
+<script src="{% static 'vendor/jquery-steps/build/jquery.steps.min.js' %}"></script>
+<script src="{% static 'vendor/jquery-validation/jquery.validate.min.js' %}"></script>
+<script src="{% static 'js/plugins-init/jquery.validate-init.js' %}"></script>
+<script src="{% static 'js/plugins-init/jquery-steps-init.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% if messages %}
+        <style>
+            .alert {
+                z-index: 99;
+            }
+        </style>
+        {% for message in messages %}
+        {% if message.tags == "success" %}
+        <div class="alert alert-primary alert-dismissible alert-alt solid fade show my-2 mx-2">
+            <button type="button" class="close h-100" data-dismiss="alert" aria-label="Close"><span><i class="mdi mdi-close"></i></span>
+            </button>
+            <strong>Success!</strong> {{ message }}
+        </div>
+        {% endif %}
+        {% if message.tags == "info" %}
+        <div class="alert alert-info alert-dismissible alert-alt solid fade show my-2 mx-2">
+            <button type="button" class="close h-100" data-dismiss="alert" aria-label="Close"><span><i class="mdi mdi-close"></i></span>
+            </button>
+            <strong>Info!</strong> {{ message }}
+        </div>
+        {% endif %}
+        {% if message.tags == "warning" %}
+        <div class="alert alert-warning alert-dismissible alert-alt solid fade show my-2 mx-2">
+            <button type="button" class="close h-100" data-dismiss="alert" aria-label="Close"><span><i class="mdi mdi-close"></i></span>
+            </button>
+            <strong>Warning!</strong> {{ message }}
+        </div>
+        {% endif %}
+        {% if message.tags == "error" %}
+        <div class="alert alert-danger alert-dismissible alert-alt solid fade show my-2 mx-2">
+            <button type="button" class="close h-100" data-dismiss="alert" aria-label="Close"><span><i class="mdi mdi-close"></i></span>
+            </button>
+            <strong>Error!</strong> {{ message }}
+        </div>
+        {% endif %}
+        {% if message.tags == "debug" %}
+        <div class="alert alert-light alert-dismissible alert-alt solid fade show my-2 mx-2">
+            <button type="button" class="close h-100" data-dismiss="alert" aria-label="Close"><span><i class="mdi mdi-close"></i></span>
+            </button>
+            <strong>Debug:</strong> {{ message }}
+        </div>
+        {% endif %}
+        {% endfor %}
+{% endif %}

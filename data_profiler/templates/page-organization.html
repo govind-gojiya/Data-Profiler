@@ -1,0 +1,255 @@
+{% extends 'includes/_layout.html' %}
+{% block title %}Data_Profiler - Organization{% endblock %}
+{% load static %}
+{% block body %}
+<div class="content-body">
+    <!-- row -->
+    <div class="container-fluid">
+        {% if user_organization %}
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text">
+                    <h4>{{ user_organization.name }}</h4>
+                    <p class="mb-0">{{ user_organization.description }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xl-4 col-lg-6 col-xxl-6 col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Members</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="recent-comment m-t-15">
+                            {% for member in members %}
+                                {% if member.status == 2 %}
+                                <div class="media">
+                                    <div class="media-left">
+                                        <a href="#"><img class="media-object mr-3" src="{% static member.user.profile_photo %}" alt="..."></a>
+                                    </div>
+                                    <div class="media-body">
+                                        <h4 class="media-heading">{% if member.user.id == organization_data.owner.id %} <span class="badge badge-info">Owner</span> {% endif %} {{ member.user.username }}</h4>
+                                        <p>{{ member.user.email }}</p>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% empty %}
+                                <p>No members found.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% if is_owner %}
+            <div class="col-xl-4 col-lg-6 col-xxl-6 col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Requests</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table student-data-table m-t-20">
+                                <thead>
+                                    <tr>
+                                        <th>User Name</th>
+                                        <th>Accept</th>
+                                        <th>Reject</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for requested_person in members %}
+                                    {% if requested_person.status == 1 %}
+                                    <tr>
+                                        <td>{{ requested_person.user.username }}</td>
+                                        <td>
+                                            <form action="{% url 'accept_request' requested_person.id %}" method="post">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn ti-plus btn-success"></button>
+                                            </form>
+                                        </td>
+                                        <td>
+                                            <form action="{% url 'reject_request' requested_person.id %}" method="post">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn ti-minus btn-danger"></button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            <div class="col-xl-6 col-lg-6 col-xxl-6 col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Organization Connectors</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table mb-0 table-responsive-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Database Type</th>
+                                        <th>Database Name</th>
+                                        <th>Owner</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for connection_details in connections_of_user %}
+                                    {% if connection_details.publish_status == 3 %}
+                                    <tr>
+                                        <td>{{ connection_details.database_type }}</td>
+                                        <td>{{ connection_details.database_name }}</td>
+                                        <td>{% if connection_details.publish_to_group__owner == user.id %}You{% else %}{{ connection_details.publish_to_group__owner__username }}{% endif %}</td>
+                                        <td>
+                                            <a href="{% url 'get_table_data' connection_details.meta_id %}" class="btn btn-primary">View</a>
+                                            {% if connection_details.publish_to_group__owner == user.id %}
+                                            <a href="{% url 'remove_connector_details' connection_details.meta_id %}" class="btn btn-danger">Delete</a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text">
+                    <h4>Connect your organization</h4>
+                    <p>Kindly request your organization if exists or add your organization</p>
+                </div>
+            </div>
+            <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex flex-wrap gap-2">
+                <button type="button" id="add_org_btn" class="btn btn-warning">Add Yours <span class="btn-icon-right"><i class="fa fa-plus"></i></span>
+                </button>
+                <button type="button" id="request_btn" class="btn btn-secondary">Request Organization <span class="btn-icon-right"><i class="fa fa-envelope"></i></span>
+                </button>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xl-6 col-xxl12 d-none" id="request_form">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Request Organization</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="basic-form">
+                            <form method="POST" action="{% url 'request_to_join' %}">
+                                {% csrf_token %}
+                                <div class="form-group">
+                                    <label>Select Organization</label>
+                                    <select name="organization_id" class="form-control">
+                                        {% for organization in all_organizations %}
+                                            <option value="{{ organization.group_id }}">{{ organization.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary mt-3">Request</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-6 col-xxl12 d-none" id="add_org_form">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Organization details</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="basic-form">
+                            <form method="POST" action="{% url 'create_organization' %}">
+                                {% csrf_token %}
+                                <div class="form-group">
+                                    <label>Organization name</label>
+                                    <input type="text" name="organization_name" id="" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Description</label>
+                                    <textarea name="organization_desc" id="" class="form-control" rows="4"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary mt-3">Add Organization</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-xl-4 col-lg-6 col-xxl-6 col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="card-title">Requested Organizations</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="recent-comment m-t-15">
+                                {% for request_organization in requested_organizations %}
+                                    <div class="media">
+                                        <div class="media-left">
+                                            <form action="{% url 'delete_requested_organization' request_organization.group.group_id %}" method="post">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-danger ti-trash"></button>
+                                            </form>
+                                        </div>
+                                        <div class="media-body">
+                                            <h4 class="media-heading">{{ request_organization.group.name }}</h4>
+                                            <p>{{ request_organization.group.description }}</p>
+                                        </div>
+                                    </div>
+                                {% empty %}
+                                    <p>No requested organizations found.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/global/global.min.js' %}"></script>
+<script src="{% static 'js/quixnav-init.js' %}"></script>
+<script src="{% static 'js/custom.min.js' %}"></script>
+<script src="{% static 'vendor/raphael/raphael.min.js' %}"></script>
+<script src="{% static 'vendor/morris/morris.min.js' %}"></script>
+<script src="{% static 'vendor/circle-progress/circle-progress.min.js' %}"></script>
+<script src="{% static 'vendor/chart.js/Chart.bundle.min.js' %}"></script>
+<script src="{% static 'vendor/gaugeJS/dist/gauge.min.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.js' %}"></script>
+<script src="{% static 'vendor/flot/jquery.flot.resize.js' %}"></script>
+<script src="{% static 'vendor/owl-carousel/js/owl.carousel.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.min.js' %}"></script>
+<script src="{% static 'vendor/jqvmap/js/jquery.vmap.usa.js' %}"></script>
+<script src="{% static 'vendor/jquery.counterup/jquery.counterup.min.js' %}"></script>
+<script src="{% static 'js/dashboard/dashboard-1.js' %}"></script>
+<script>
+    request_btn = document.getElementById("request_btn");
+    request_form = document.getElementById("request_form");
+    add_org_btn = document.getElementById("add_org_btn");
+    add_org_form = document.getElementById("add_org_form");
+    
+
+    request_btn.addEventListener('click', ()=> {
+        request_form.classList.toggle("d-none")
+        add_org_form.classList.add("d-none")
+    })
+
+    add_org_btn.addEventListener('click', ()=> {
+        add_org_form.classList.toggle("d-none")
+        request_form.classList.add("d-none")
+    })
+
+</script>
+{% endblock %}

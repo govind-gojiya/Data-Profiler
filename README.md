@@ -1,6 +1,6 @@
 # Data Profiler
 
-## Profject setup steps :
+## Project setup steps :
 1. Create venv for project
 2. Download requirement dependencies
     - pip install -r requirement.txt
